@@ -1,0 +1,12 @@
+{
+  "name": "@kreaflow/ts-config",
+  "version": "1.0.0",
+  "private": true,
+  "main": "base.json",
+  "exports": {
+    "./base.json": "./base.json"
+  },
+  "files": [
+    "base.json"
+  ]
+}
