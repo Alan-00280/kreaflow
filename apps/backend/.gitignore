@@ -54,9 +54,11 @@ tmp/
 temp/
 
 # Generic build outputs
-apps/*/dist
-apps/*/build
-apps/*/generated
-packages/*/dist
-packages/*/build
-packages/*/generated
+*/dist
+/**/dist
+*/build
+/**/build
+*/generated
+/**/generated
+
+

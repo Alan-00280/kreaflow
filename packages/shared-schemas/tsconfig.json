@@ -9,6 +9,6 @@
     "rootDir": "./src",      /* Lokasi folder kode mentah kamu */
     "strictNullChecks": true,
   },
-  "include": ["src/**/*"],
+  "include": ["src/**/*", "src"],
   "exclude": ["node_modules", "dist"]
 }

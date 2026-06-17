@@ -26,6 +26,7 @@ import {
   useSidebar,
 } from "@/components/ui/sidebar";
 import type { NavGroup, NavMainItem } from "@/navigation/sidebar/sidebar-items";
+import { useSession } from "@/components/providers/session-provider";
 
 interface NavMainProps {
   readonly items: readonly NavGroup[];
@@ -144,6 +145,30 @@ const NavItemCollapsed = ({
 export function NavMain({ items }: NavMainProps) {
   const path = usePathname();
   const { state, isMobile } = useSidebar();
+  const session = useSession();
+  const userRole = session?.role || "operator";
+
+  // Filter groups and items based on role
+  const filteredGroups = items
+    .map((group) => {
+      const filteredItems = group.items
+        .filter((item) => !item.roles || item.roles.includes(userRole))
+        .map((item) => {
+          if (item.subItems) {
+            return {
+              ...item,
+              subItems: item.subItems.filter((sub) => !sub.roles || sub.roles.includes(userRole))
+            };
+          }
+          return item;
+        });
+
+      return {
+        ...group,
+        items: filteredItems
+      };
+    })
+    .filter((group) => group.items.length > 0);
 
   const isItemActive = (url: string, subItems?: NavMainItem["subItems"]) => {
     if (subItems?.length) {
@@ -181,7 +206,7 @@ export function NavMain({ items }: NavMainProps) {
           </SidebarMenu>
         </SidebarGroupContent>
       </SidebarGroup>
-      {items.map((group) => (
+      {filteredGroups.map((group) => (
         <SidebarGroup key={group.id}>
           {group.label && <SidebarGroupLabel>{group.label}</SidebarGroupLabel>}
           <SidebarGroupContent className="flex flex-col gap-2">

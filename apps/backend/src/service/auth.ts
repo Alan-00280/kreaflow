@@ -1,9 +1,9 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { loginRoute } from '../routes/auth.js'
+import { loginRoute, logoutRoute } from '../routes/auth.js'
 import { loginSchema } from '@kreaflow/shared-schemas'
 import { PrismaClient } from '../generated/prisma/client.js'
 import bcrypt from 'bcrypt'
-import { setCookie } from 'hono/cookie'
+import { setCookie, deleteCookie } from 'hono/cookie'
 import { sign } from 'hono/jwt'
 
 type ContextWithPrisma = {
@@ -75,6 +75,16 @@ auth.openapi(loginRoute, async (c) => {
 
   } catch (error: any) {
     console.error('Login error:', error)
+    return c.json({ error: 'Internal server error', detail: error.message }, 500)
+  }
+})
+
+auth.openapi(logoutRoute, async (c) => {
+  try {
+    deleteCookie(c, 'token', { path: '/' })
+    return c.json({ success: true }, 200)
+  } catch (error: any) {
+    console.error('Logout error:', error)
     return c.json({ error: 'Internal server error', detail: error.message }, 500)
   }
 })

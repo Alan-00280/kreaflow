@@ -1,11 +1,9 @@
-import { createRoute, z } from "@hono/zod-openapi"
+import { createRoute, z } from '@hono/zod-openapi'
 
 export const loginRequestSchema = z.object({
-  email: z.string()
-    .email({ message: "Format email tidak valid" })
+  email: z.email()
     .openapi({ description: "Alamat email internal store", example: "admin@mamang.geming" }),
   password: z.string()
-    .min(6, { message: "Password minimal 6 karakter" })
     .openapi({ description: "Kata sandi akun", example: "playergaminggokil112233" })
 }).openapi('LoginRequest')
 
@@ -69,3 +67,34 @@ export const loginRoute = createRoute({
     }
   },
 })
+
+export const successResponseSchema = z.object({
+  success: z.boolean().openapi({ description: "Status keberhasilan", example: true })
+}).openapi('SuccessResponse')
+
+export const logoutRoute = createRoute({
+  method: 'post',
+  path: '/logout',
+  tags: ['Auth'],
+  summary: 'User Logout',
+  description: 'Menghapus cookie sesi aktif untuk keluar dari sistem.',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: successResponseSchema,
+        },
+      },
+      description: 'Logout berhasil, cookie dihapus',
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema,
+        },
+      },
+      description: 'Terjadi kesalahan internal server',
+    }
+  },
+})
+

@@ -11,10 +11,11 @@ import { SimpleIcon } from "@/components/simple-icon";
 import { Button } from "@/components/ui/button";
 import { Separator } from "@/components/ui/separator";
 import { SidebarInset, SidebarProvider, SidebarTrigger } from "@/components/ui/sidebar";
-import { users } from "@/data/users";
 import { SIDEBAR_COLLAPSIBLE_VALUES, SIDEBAR_VARIANT_VALUES } from "@/lib/preferences/layout";
 import { cn } from "@/lib/utils";
 import { getPreference } from "@/server/server-actions";
+import { getSession } from "@/lib/auth";
+import { SessionProvider } from "@/components/providers/session-provider";
 
 import { AccountSwitcher } from "./_components/sidebar/account-switcher";
 import { LayoutControls } from "./_components/sidebar/layout-controls";
@@ -22,14 +23,13 @@ import { SearchDialog } from "./_components/sidebar/search-dialog";
 import { ThemeSwitcher } from "./_components/sidebar/theme-switcher";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
-  const cookieStore = await cookies();
+  const session = await getSession();
   
-  // Auth check: redirect if token/jwt is not found (will be stored as HttpOnly cookie)
-  const token = cookieStore.get("token")?.value || cookieStore.get("jwt")?.value;
-  if (!token) {
+  if (!session) {
     redirect("/auth/v2/login");
   }
 
+  const cookieStore = await cookies();
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
   const [variant, collapsible] = await Promise.all([
     getPreference("sidebar_variant", SIDEBAR_VARIANT_VALUES, "inset"),
@@ -37,9 +37,10 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
   ]);
 
   return (
-    <SidebarProvider
-      defaultOpen={defaultOpen}
-      style={
+    <SessionProvider session={session}>
+      <SidebarProvider
+        defaultOpen={defaultOpen}
+        style={
         {
           "--sidebar-width": "calc(var(--spacing) * 68)",
         } as React.CSSProperties
@@ -78,7 +79,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
               <Button asChild size="icon">
                 <Link
                   prefetch={false}
-                  href="https://github.com/arhamkhnz/next-shadcn-admin-dashboard"
+                  href="https://github.com/Alan-00280/kreaflow.git"
                   target="_blank"
                   rel="noreferrer"
                   aria-label="Open GitHub repository"
@@ -86,7 +87,7 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
                   <SimpleIcon icon={siGithub} className="fill-primary-foreground" />
                 </Link>
               </Button>
-              <AccountSwitcher users={users} />
+              <AccountSwitcher />
             </div>
           </div>
         </header>
@@ -96,5 +97,6 @@ export default async function Layout({ children }: Readonly<{ children: ReactNod
         </div>
       </SidebarInset>
     </SidebarProvider>
+  </SessionProvider>
   );
 }
