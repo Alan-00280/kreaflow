@@ -57,7 +57,7 @@ auth.openapi(loginRoute, async (c) => {
       exp: Math.floor(Date.now() / 1000) + 60 * 60 * 24 // 24 hours from now
     }
 
-    const token = await sign(payload, secret)
+    const token = await sign(payload, secret, 'HS256')
 
     // Inject the token into the response headers using Hono setCookie helper
     setCookie(c, 'token', token, {

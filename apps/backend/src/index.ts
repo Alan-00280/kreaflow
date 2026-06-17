@@ -7,6 +7,9 @@ import { loggerMiddleware } from "./middlewares/logger.js";
 import { swaggerUI } from "@hono/swagger-ui";
 import logger from "./lib/logger.js";
 import auth from "./service/auth.js";
+import products from "./service/products.js";
+import bundles from "./service/bundles.js";
+import orders from "./service/orders.js";
 import 'dotenv/config'
 import { validateSecrets } from "./lib/jwt.js";
 
@@ -24,6 +27,9 @@ app.use("*", loggerMiddleware);
 
 // Mount services routes
 app.route("/auth", auth);
+app.route("/products", products);
+app.route("/bundles", bundles);
+app.route("/orders", orders);
 
 const healthRoute = createRoute({
   method: 'get',
