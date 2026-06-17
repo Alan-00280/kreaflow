@@ -2,15 +2,14 @@
 > @kreaflow/backend@1.0.0 prisma:generate E:\Programming 101\Projects\kreaflow\apps\backend
 > prisma generate
 
-Error: Could not find Prisma Schema that is required for this command.
-You can either provide it with `--schema` argument,
-set it in your Prisma Config file (e.g., `prisma.config.ts`),
-set it as `prisma.schema` in your package.json,
-or put it into the default location (`./prisma/schema.prisma`, or `./schema.prisma`.
-Checked following paths:
+Loaded Prisma config from prisma.config.ts.
 
-schema.prisma: file not found
-prisma\schema.prisma: file not found
+Prisma schema loaded from prisma\schema.prisma.
 
-See also https://pris.ly/d/prisma-schema-location
- ELIFECYCLE  Command failed with exit code 1.
+✔ Generated Prisma Client (v7.8.0) to .\src\generated\prisma in 4.63s
+
+✔ Generated Zod Prisma Types to .\..\..\packages\shared-schemas\src\generated in 7.82s
+
+Start by importing your Prisma Client (See: https://pris.ly/d/importing-client)
+
+

@@ -28,6 +28,9 @@ yarn-error.log*
 # local env files
 .env*.local
 .env
+.env 
+.env.production 
+.env.staging
 
 # vercel
 .vercel
@@ -35,3 +38,5 @@ yarn-error.log*
 # typescript
 *.tsbuildinfo
 next-env.d.ts
+apps/backend/.turbo/
+apps/backend/.turbo/turbo-prisma$colon$generate.log

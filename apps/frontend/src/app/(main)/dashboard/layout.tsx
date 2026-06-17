@@ -2,6 +2,7 @@ import type { ReactNode } from "react";
 
 import { cookies } from "next/headers";
 import Link from "next/link";
+import { redirect } from "next/navigation";
 
 import { siGithub } from "simple-icons";
 
@@ -22,6 +23,13 @@ import { ThemeSwitcher } from "./_components/sidebar/theme-switcher";
 
 export default async function Layout({ children }: Readonly<{ children: ReactNode }>) {
   const cookieStore = await cookies();
+  
+  // Auth check: redirect if token/jwt is not found (will be stored as HttpOnly cookie)
+  const token = cookieStore.get("token")?.value || cookieStore.get("jwt")?.value;
+  if (!token) {
+    redirect("/auth/v2/login");
+  }
+
   const defaultOpen = cookieStore.get("sidebar_state")?.value !== "false";
   const [variant, collapsible] = await Promise.all([
     getPreference("sidebar_variant", SIDEBAR_VARIANT_VALUES, "inset"),
