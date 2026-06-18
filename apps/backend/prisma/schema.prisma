@@ -1,28 +1,206 @@
 // This is your Prisma schema file,
 // learn more about it in the docs: https://pris.ly/d/prisma-schema
 
-// Get a free hosted Postgres database in seconds: `npx create-db`
-
 generator client {
-  provider = "prisma-client"
-  output   = "../generated/prisma"
+  provider = "prisma-client-js"
+  output   = "../src/generated/prisma"
+}
+
+generator zod {
+  provider = "zod-prisma-types"
+  output   = "./zod/generated"
+  useMultipleFiles  = true
 }
 
 datasource db {
   provider = "postgresql"
 }
 
-model User { 
-  id    Int     @id @default(autoincrement()) 
-  email String  @unique
-  name  String?
-  posts Post[]
-} 
-model Post { 
-  id        Int     @id @default(autoincrement()) 
-  title     String
-  content   String?
-  published Boolean @default(false) 
-  author    User    @relation(fields: [authorId], references: [id]) 
-  authorId  Int
-} 
+// ─────────────────────────────────────────
+// ENUMS
+// ─────────────────────────────────────────
+
+enum Role {
+  admin
+  operator
+}
+
+enum InputType {
+  text
+  number
+  option
+  file
+}
+
+enum FulfillmentType {
+  pesan_vendor
+  ambil_stok
+}
+
+enum FulfillmentStatus {
+  none                     @map("null")
+  ambil_di_sekretariat
+  menghubungi_vendor
+  diproses_vendor
+  diterima_dari_vendor
+  belum_menghubungi_vendor
+}
+
+// ─────────────────────────────────────────
+// MODELS
+// ─────────────────────────────────────────
+
+model User {
+  id        BigInt   @id @default(autoincrement())
+  name      String   @db.VarChar(100)
+  email     String   @unique @db.VarChar(150)
+  /// @encrypted - Di-hash menggunakan Bcrypt dengan salt round 12
+  password  String   @db.VarChar(255)
+  role      Role     @default(admin)
+  createdAt DateTime @default(now()) @map("created_at")
+  updatedAt DateTime @updatedAt @map("updated_at")
+  orders    Order[]
+
+  @@map("users")
+}
+
+model Customer {
+  id          BigInt   @id @default(autoincrement())
+  name        String   @db.VarChar(100)
+  phoneNumber String?  @map("phone_number") @db.VarChar(20)
+  generation  Int?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  orders      Order[]
+
+  @@map("customers")
+}
+
+model Product {
+  id                BigInt             @id @default(autoincrement())
+  name              String             @db.VarChar(150)
+  basePrice         Decimal            @map("base_price") @db.Decimal(12, 2)
+  isActive          Boolean            @default(true) @map("is_active")
+  createdAt         DateTime           @default(now()) @map("created_at")
+  bundleProducts    BundleProduct[]
+  productAttributes ProductAttribute[]
+  orderItems        OrderItem[]
+  summaryProducts   SummaryProduct[]
+
+  @@map("products")
+}
+
+model Bundle {
+  id             BigInt          @id @default(autoincrement())
+  name           String          @db.VarChar(150)
+  description    String?         @db.Text
+  bundlePrice    Decimal         @map("bundle_price") @db.Decimal(12, 2)
+  isActive       Boolean         @default(true) @map("is_active")
+  createdAt      DateTime        @default(now()) @map("created_at")
+  bundleProducts BundleProduct[]
+  orderItems     OrderItem[]
+
+  @@map("bundles")
+}
+
+model BundleProduct {
+  id        BigInt  @id @default(autoincrement())
+  bundleId  BigInt  @map("bundle_id")
+  productId BigInt  @map("product_id")
+  quantity  Int     @default(1)
+  bundle    Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+
+  @@map("bundle_products")
+}
+
+model ProductAttribute {
+  id               BigInt            @id @default(autoincrement())
+  productId        BigInt            @map("product_id")
+  attributeName    String            @map("attribute_name") @db.VarChar(100)
+  inputType        InputType         @map("input_type")
+  isRequired       Boolean           @default(false) @map("is_required")
+  product          Product           @relation(fields: [productId], references: [id], onDelete: Cascade)
+  attributeOptions AttributeOption[]
+  orderItemDetails OrderItemDetail[]
+
+  @@map("product_attributes")
+}
+
+model AttributeOption {
+  id               BigInt            @id @default(autoincrement())
+  attributeId      BigInt            @map("attribute_id")
+  optionValue      String            @map("option_value") @db.VarChar(255)
+  productAttribute ProductAttribute  @relation(fields: [attributeId], references: [id], onDelete: Cascade)
+  orderItemDetails OrderItemDetail[]
+
+  @@map("attribute_options")
+}
+
+model Order {
+  id               BigInt      @id @default(autoincrement())
+  invoiceNumber    String      @unique @map("invoice_number") @db.VarChar(50)
+  recordedByUserId BigInt      @map("recorded_by_user_id")
+  customerId       BigInt      @map("customer_id")
+  totalAmount      Decimal     @map("total_amount") @db.Decimal(12, 2)
+  orderDate        DateTime    @map("order_date") @db.Date
+  createdAt        DateTime    @default(now()) @map("created_at")
+  updatedAt        DateTime    @updatedAt @map("updated_at")
+  recordedByUser   User        @relation(fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  customer         Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  orderItems       OrderItem[]
+
+  @@map("orders")
+}
+
+model OrderItem {
+  id               BigInt            @id @default(autoincrement())
+  orderId          BigInt            @map("order_id")
+  productId        BigInt?           @map("product_id")
+  bundleId         BigInt?           @map("bundle_id")
+  quantity         Int               @default(1)
+  priceAtPurchase  Decimal           @map("price_at_purchase") @db.Decimal(12, 2)
+  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product          Product?          @relation(fields: [productId], references: [id], onDelete: Restrict)
+  bundle           Bundle?           @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+  orderItemDetails OrderItemDetail[]
+
+  @@map("order_items")
+}
+
+model OrderItemDetail {
+  id               BigInt           @id @default(autoincrement())
+  orderItemId      BigInt           @map("order_item_id")
+  attributeId      BigInt           @map("attribute_id")
+  selectedOptionId BigInt?          @map("selected_option_id")
+  customValue      String?          @map("custom_value") @db.Text
+  orderItem        OrderItem        @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  productAttribute ProductAttribute @relation(fields: [attributeId], references: [id], onDelete: Restrict)
+  attributeOption  AttributeOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
+
+  @@map("order_item_details")
+}
+
+model ProductOrderSummary {
+  id               BigInt           @id @default(autoincrement())
+  name             String           @db.VarChar(150)
+  orderStartedDate DateTime         @map("order_started_date") @db.Date
+  orderEndDate     DateTime         @map("order_end_date") @db.Date
+  createdAt        DateTime         @default(now()) @map("created_at")
+  summaryProducts  SummaryProduct[]
+
+  @@map("product_order_summaries")
+}
+
+model SummaryProduct {
+  id                BigInt              @id @default(autoincrement())
+  summaryId         BigInt              @map("summary_id")
+  productId         BigInt              @map("product_id")
+  totalQuantity     Int                 @map("total_quantity")
+  fulfillmentType   FulfillmentType     @default(pesan_vendor) @map("fulfillment_type")
+  fulfillmentStatus FulfillmentStatus   @default(none) @map("fulfillment_status")
+  summary           ProductOrderSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  product           Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("summary_products")
+}

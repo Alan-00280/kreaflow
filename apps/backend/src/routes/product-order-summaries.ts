@@ -1,0 +1,300 @@
+import { createRoute, z } from "@hono/zod-openapi"
+import { errorResponseSchema } from "./orders.js"
+
+export const summaryProductResponseSchema = z.object({
+  id: z.string().openapi({ description: "ID Summary Product", example: "1" }),
+  summaryId: z.string().openapi({ description: "ID Product Order Summary", example: "1" }),
+  productId: z.string().openapi({ description: "ID Produk", example: "1" }),
+  totalQuantity: z.number().openapi({ description: "Jumlah Akumulasi Produk", example: 10 }),
+  fulfillmentType: z.enum(['pesan_vendor', 'ambil_stok']).openapi({ description: "Tipe Pemesanan", example: "pesan_vendor" }),
+  fulfillmentStatus: z.enum([
+    'null',
+    'ambil_di_sekretariat',
+    'menghubungi_vendor',
+    'diproses_vendor',
+    'diterima_dari_vendor',
+    'belum_menghubungi_vendor'
+  ]).openapi({ description: "Status Pemenuhan", example: "null" }),
+  product: z.object({
+    id: z.string(),
+    name: z.string(),
+    basePrice: z.string()
+  }).optional().openapi({ description: "Data Detail Produk" })
+}).openapi('SummaryProductResponse')
+
+export const productOrderSummaryResponseSchema = z.object({
+  id: z.string().openapi({ description: "ID Product Order Summary", example: "1" }),
+  name: z.string().openapi({ description: "Nama Summary", example: "OPEN PO Merchandise Batch 1" }),
+  orderStartedDate: z.string().openapi({ description: "Tanggal Mulai Pesanan (YYYY-MM-DD)", example: "2026-06-01" }),
+  orderEndDate: z.string().openapi({ description: "Tanggal Akhir Pesanan (YYYY-MM-DD)", example: "2026-06-12" }),
+  createdAt: z.string().openapi({ description: "Tanggal Dibuat", example: "2026-06-18T00:00:00Z" }),
+  summaryProducts: z.array(summaryProductResponseSchema).optional().openapi({ description: "Daftar Produk Terkait" })
+}).openapi('ProductOrderSummaryResponse')
+
+export const createSummaryRequestSchema = z.object({
+  name: z.string().min(1).max(150).openapi({ description: "Nama Summary", example: "OPEN PO Merchandise Batch 1" }),
+  orderStartedDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Format tanggal mulai harus YYYY-MM-DD" }).openapi({ description: "Tanggal Mulai Pesanan (YYYY-MM-DD)", example: "2026-06-01" }),
+  orderEndDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/, { message: "Format tanggal akhir harus YYYY-MM-DD" }).openapi({ description: "Tanggal Akhir Pesanan (YYYY-MM-DD)", example: "2026-06-12" }),
+}).openapi('CreateSummaryRequest')
+
+export const updateSummaryProductItemSchema = z.object({
+  productId: z.string().openapi({ description: "ID Produk", example: "1" }),
+  fulfillmentType: z.enum(['pesan_vendor', 'ambil_stok']).openapi({ description: "Tipe Pemesanan", example: "pesan_vendor" }),
+  fulfillmentStatus: z.enum([
+    'null',
+    'ambil_di_sekretariat',
+    'menghubungi_vendor',
+    'diproses_vendor',
+    'diterima_dari_vendor',
+    'belum_menghubungi_vendor'
+  ]).openapi({ description: "Status Pemenuhan", example: "menghubungi_vendor" }),
+}).openapi('UpdateSummaryProductItem')
+
+export const updateSummaryProductsRequestSchema = z.object({
+  products: z.array(updateSummaryProductItemSchema).min(1).openapi({ description: "Daftar pembaruan produk" })
+}).openapi('UpdateSummaryProductsRequest')
+
+export const createSummaryRoute = createRoute({
+  method: 'post',
+  path: '/',
+  tags: ['Product Order Summaries'],
+  summary: 'Membuat Ringkasan Pesanan Baru (Admin Only)',
+  description: 'Mencatat ringkasan pesanan baru dengan menjumlahkan total produk terfilter pada rentang tanggal transaksi.',
+  request: {
+    body: {
+      content: {
+        'application/json': {
+          schema: createSummaryRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    201: {
+      content: {
+        'application/json': {
+          schema: productOrderSummaryResponseSchema
+        }
+      },
+      description: 'Ringkasan pesanan berhasil dibuat'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Request payload tidak valid'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Forbidden: Operator tidak berwenang membuat summary'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+
+export const listSummariesRoute = createRoute({
+  method: 'get',
+  path: '/',
+  tags: ['Product Order Summaries'],
+  summary: 'Daftar Ringkasan Pesanan (Admin & Operator)',
+  description: 'Mengambil daftar seluruh ringkasan pesanan.',
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.array(productOrderSummaryResponseSchema)
+        }
+      },
+      description: 'Daftar ringkasan pesanan berhasil diambil'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+
+export const getSummaryDetailRoute = createRoute({
+  method: 'get',
+  path: '/{id}',
+  tags: ['Product Order Summaries'],
+  summary: 'Detail Ringkasan Pesanan (Admin & Operator)',
+  description: 'Mengambil detail lengkap spesifik satu ringkasan pesanan berdasarkan ID.',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ description: "ID Ringkasan Pesanan", example: "1" })
+    })
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: productOrderSummaryResponseSchema
+        }
+      },
+      description: 'Detail ringkasan pesanan ditemukan'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Ringkasan pesanan tidak ditemukan'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+
+export const updateSummaryProductsRoute = createRoute({
+  method: 'patch',
+  path: '/{id}/products',
+  tags: ['Product Order Summaries'],
+  summary: 'Memperbarui Status & Tipe Pemesanan Produk (Admin & Operator)',
+  description: 'Memperbarui tipe pemesanan dan status pemenuhan produk di dalam ringkasan pesanan secara massal.',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ description: "ID Ringkasan Pesanan", example: "1" })
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: updateSummaryProductsRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ success: z.boolean(), message: z.string() })
+        }
+      },
+      description: 'Status pemenuhan produk berhasil diperbarui'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Request payload tidak valid'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Ringkasan pesanan tidak ditemukan'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+
+export const exportSummaryProductRoute = createRoute({
+  method: 'get',
+  path: '/{id}/export/{productId}',
+  tags: ['Product Order Summaries'],
+  summary: 'Ekspor Detail Transaksi Produk ke CSV (Admin & Operator)',
+  description: 'Mendownload file CSV yang berisi seluruh transaksi pemesanan produk teragregasi lengkap dengan atribut kustomisasinya.',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ description: "ID Ringkasan Pesanan", example: "1" }),
+      productId: z.string().openapi({ description: "ID Produk", example: "1" })
+    })
+  },
+  responses: {
+    200: {
+      description: 'Stream download file CSV berhasil diproses'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Ringkasan pesanan atau produk tidak ditemukan'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})

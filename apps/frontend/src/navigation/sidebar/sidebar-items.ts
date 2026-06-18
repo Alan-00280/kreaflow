@@ -1,177 +1,113 @@
 import {
-  Banknote,
-  Calendar,
-  ChartBar,
-  Fingerprint,
-  Forklift,
-  Gauge,
-  GraduationCap,
-  Kanban,
+  Boxes,
   LayoutDashboard,
-  ListTodo,
-  Lock,
-  type LucideIcon,
-  Mail,
-  MessageSquare,
+  Package,
+  PlusCircle,
   ReceiptText,
-  ShoppingBag,
-  SquareArrowUpRight,
+  UserCog,
   Users,
-} from "lucide-react";
+  ClipboardList,
+} from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 export interface NavSubItem {
-  title: string;
-  url: string;
-  icon?: LucideIcon;
-  comingSoon?: boolean;
-  newTab?: boolean;
-  isNew?: boolean;
+  title: string
+  url: string
+  icon?: LucideIcon
+  comingSoon?: boolean
+  newTab?: boolean
+  isNew?: boolean
+  roles?: string[]
 }
 
 export interface NavMainItem {
-  title: string;
-  url: string;
-  icon?: LucideIcon;
-  subItems?: NavSubItem[];
-  comingSoon?: boolean;
-  newTab?: boolean;
-  isNew?: boolean;
+  title: string
+  url: string
+  icon?: LucideIcon
+  subItems?: NavSubItem[]
+  comingSoon?: boolean
+  newTab?: boolean
+  isNew?: boolean
+  roles?: string[]
 }
 
 export interface NavGroup {
-  id: number;
-  label?: string;
-  items: NavMainItem[];
+  id: number
+  label?: string
+  items: NavMainItem[]
 }
 
 export const sidebarItems: NavGroup[] = [
   {
     id: 1,
-    label: "Dashboards",
+    label: 'Overview',
     items: [
       {
-        title: "Default",
-        url: "/dashboard/default",
+        title: 'Dashboard',
+        url: '/dashboard',
         icon: LayoutDashboard,
-      },
-      {
-        title: "CRM",
-        url: "/dashboard/crm",
-        icon: ChartBar,
-      },
-      {
-        title: "Finance",
-        url: "/dashboard/finance",
-        icon: Banknote,
-      },
-      {
-        title: "Analytics",
-        url: "/dashboard/analytics",
-        icon: Gauge,
-      },
-      {
-        title: "Productivity",
-        url: "/dashboard/productivity",
-        icon: ListTodo,
-      },
-      {
-        title: "E-commerce",
-        url: "/dashboard/ecommerce",
-        icon: ShoppingBag,
-      },
-      {
-        title: "Academy",
-        url: "/dashboard/academy",
-        icon: GraduationCap,
-        isNew: true,
-      },
-      {
-        title: "Logistics",
-        url: "/dashboard/logistics",
-        icon: Forklift,
-      },
-    ],
+        roles: ['admin', 'operator']
+      }
+    ]
   },
   {
     id: 2,
-    label: "Pages",
+    label: 'Transaksi',
     items: [
       {
-        title: "Email",
-        url: "/dashboard/mail",
-        icon: Mail,
-      },
-      {
-        title: "Chat",
-        url: "/dashboard/chat",
-        icon: MessageSquare,
-      },
-      {
-        title: "Calendar",
-        url: "/dashboard/coming-soon",
-        icon: Calendar,
-        comingSoon: true,
-      },
-      {
-        title: "Kanban",
-        url: "/dashboard/kanban",
-        icon: Kanban,
-      },
-      {
-        title: "Invoice",
-        url: "/dashboard/coming-soon",
+        title: 'Daftar Pesanan',
+        url: '/dashboard/orders',
         icon: ReceiptText,
-        comingSoon: true,
+        roles: ['admin', 'operator']
       },
       {
-        title: "Users",
-        url: "/dashboard/users",
-        icon: Users,
+        title: 'Catat Pesanan',
+        url: '/dashboard/orders/new',
+        icon: PlusCircle,
+        roles: ['admin', 'operator']
       },
       {
-        title: "Roles",
-        url: "/dashboard/roles",
-        icon: Lock,
-      },
-      {
-        title: "Authentication",
-        url: "/auth",
-        icon: Fingerprint,
-        subItems: [
-          { title: "Login v1", url: "/auth/v1/login", newTab: true },
-          { title: "Login v2", url: "/auth/v2/login", newTab: true },
-          { title: "Register v1", url: "/auth/v1/register", newTab: true },
-          { title: "Register v2", url: "/auth/v2/register", newTab: true },
-        ],
-      },
-    ],
+        title: 'Ringkasan Pesanan',
+        url: '/dashboard/product-order-summaries',
+        icon: ClipboardList,
+        roles: ['admin', 'operator']
+      }
+    ]
   },
   {
     id: 3,
-    label: "Legacy",
+    label: 'Katalog',
     items: [
       {
-        title: "Dashboards",
-        url: "/dashboard/default-v1",
-        subItems: [
-          { title: "Default V1", url: "/dashboard/default-v1" },
-          { title: "CRM V1", url: "/dashboard/crm-v1" },
-          { title: "Finance V1", url: "/dashboard/finance-v1" },
-          { title: "Analytics V1", url: "/dashboard/analytics-v1" },
-        ],
+        title: 'Produk Satuan',
+        url: '/dashboard/products',
+        icon: Package,
+        roles: ['admin', 'operator']
       },
-    ],
+      {
+        title: 'Paket Bundling',
+        url: '/dashboard/bundles',
+        icon: Boxes,
+        roles: ['admin', 'operator']
+      }
+    ]
   },
   {
     id: 4,
-    label: "Misc",
+    label: 'Manajemen',
     items: [
       {
-        title: "Others",
-        url: "/dashboard/coming-soon",
-        icon: SquareArrowUpRight,
-        comingSoon: true,
+        title: 'Pelanggan',
+        url: '/dashboard/customers',
+        icon: Users,
+        roles: ['admin', 'operator']
       },
-    ],
-  },
-];
+      {
+        title: 'Manajemen Staff',
+        url: '/dashboard/users',
+        icon: UserCog,
+        roles: ['admin']
+      }
+    ]
+  }
+]

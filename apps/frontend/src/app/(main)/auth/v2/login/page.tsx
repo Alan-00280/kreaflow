@@ -1,5 +1,3 @@
-import Link from "next/link";
-
 import { Globe } from "lucide-react";
 
 import { APP_CONFIG } from "@/config/app-config";
@@ -16,22 +14,22 @@ export default function LoginV2() {
           <p className="text-muted-foreground text-sm">Please enter your details to login.</p>
         </div>
         <div className="space-y-4">
-          <GoogleButton className="w-full" />
+          {/* <GoogleButton className="w-full" />
           <div className="relative text-center text-sm after:absolute after:inset-0 after:top-1/2 after:z-0 after:flex after:items-center after:border-border after:border-t">
             <span className="relative z-10 bg-background px-2 text-muted-foreground">Or continue with</span>
-          </div>
+          </div> */}
           <LoginForm />
         </div>
       </div>
 
-      <div className="absolute top-5 flex w-full justify-end px-10">
+      {/* <div className="absolute top-5 flex w-full justify-end px-10">
         <div className="text-muted-foreground text-sm">
           Don&apos;t have an account?{" "}
           <Link prefetch={false} className="text-foreground" href="register">
             Register
           </Link>
         </div>
-      </div>
+      </div> */}
 
       <div className="absolute bottom-5 flex w-full justify-between px-10">
         <div className="text-sm">{APP_CONFIG.copyright}</div>
