@@ -1,13 +1,14 @@
 import {
   Boxes,
   LayoutDashboard,
-  type LucideIcon,
   Package,
   PlusCircle,
   ReceiptText,
   UserCog,
   Users,
+  ClipboardList,
 } from 'lucide-react'
+import type { LucideIcon } from 'lucide-react'
 
 export interface NavSubItem {
   title: string
@@ -63,6 +64,12 @@ export const sidebarItems: NavGroup[] = [
         title: 'Catat Pesanan',
         url: '/dashboard/orders/new',
         icon: PlusCircle,
+        roles: ['admin', 'operator']
+      },
+      {
+        title: 'Ringkasan Pesanan',
+        url: '/dashboard/product-order-summaries',
+        icon: ClipboardList,
         roles: ['admin', 'operator']
       }
     ]

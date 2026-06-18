@@ -127,3 +127,35 @@ export const orderItemDetailModelSchema = z.object({
   customValue: z.string().nullable().optional()
 })
 export type OrderItemDetailModel = z.infer<typeof orderItemDetailModelSchema>
+
+export const fulfillmentTypeSchema = z.enum(['pesan_vendor', 'ambil_stok'])
+export type FulfillmentType = z.infer<typeof fulfillmentTypeSchema>
+
+export const fulfillmentStatusSchema = z.enum([
+  'null',
+  'ambil_di_sekretariat',
+  'menghubungi_vendor',
+  'diproses_vendor',
+  'diterima_dari_vendor',
+  'belum_menghubungi_vendor'
+])
+export type FulfillmentStatus = z.infer<typeof fulfillmentStatusSchema>
+
+export const productOrderSummaryModelSchema = z.object({
+  id: bigIntSchema.optional(),
+  name: z.string().max(150),
+  orderStartedDate: dateTimeSchema,
+  orderEndDate: dateTimeSchema,
+  createdAt: dateTimeSchema.optional()
+})
+export type ProductOrderSummaryModel = z.infer<typeof productOrderSummaryModelSchema>
+
+export const summaryProductModelSchema = z.object({
+  id: bigIntSchema.optional(),
+  summaryId: bigIntSchema,
+  productId: bigIntSchema,
+  totalQuantity: z.number().int().nonnegative(),
+  fulfillmentType: fulfillmentTypeSchema.default('pesan_vendor'),
+  fulfillmentStatus: fulfillmentStatusSchema.default('null')
+})
+export type SummaryProductModel = z.infer<typeof summaryProductModelSchema>

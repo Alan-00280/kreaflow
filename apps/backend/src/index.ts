@@ -11,6 +11,7 @@ import products from "./service/products.js";
 import bundles from "./service/bundles.js";
 import orders from "./service/orders.js";
 import customers from "./service/customers.js";
+import productOrderSummaries from "./service/product-order-summaries.js";
 import 'dotenv/config'
 import { validateSecrets } from "./lib/jwt.js";
 
@@ -32,6 +33,7 @@ app.route("/products", products);
 app.route("/bundles", bundles);
 app.route("/orders", orders);
 app.route("/customers", customers);
+app.route("/product-order-summaries", productOrderSummaries);
 
 const healthRoute = createRoute({
   method: 'get',

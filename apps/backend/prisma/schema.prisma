@@ -32,6 +32,20 @@ enum InputType {
   file
 }
 
+enum FulfillmentType {
+  pesan_vendor
+  ambil_stok
+}
+
+enum FulfillmentStatus {
+  none                     @map("null")
+  ambil_di_sekretariat
+  menghubungi_vendor
+  diproses_vendor
+  diterima_dari_vendor
+  belum_menghubungi_vendor
+}
+
 // ─────────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────────
@@ -71,6 +85,7 @@ model Product {
   bundleProducts    BundleProduct[]
   productAttributes ProductAttribute[]
   orderItems        OrderItem[]
+  summaryProducts   SummaryProduct[]
 
   @@map("products")
 }
@@ -164,4 +179,28 @@ model OrderItemDetail {
   attributeOption  AttributeOption? @relation(fields: [selectedOptionId], references: [id], onDelete: SetNull)
 
   @@map("order_item_details")
+}
+
+model ProductOrderSummary {
+  id               BigInt           @id @default(autoincrement())
+  name             String           @db.VarChar(150)
+  orderStartedDate DateTime         @map("order_started_date") @db.Date
+  orderEndDate     DateTime         @map("order_end_date") @db.Date
+  createdAt        DateTime         @default(now()) @map("created_at")
+  summaryProducts  SummaryProduct[]
+
+  @@map("product_order_summaries")
+}
+
+model SummaryProduct {
+  id                BigInt              @id @default(autoincrement())
+  summaryId         BigInt              @map("summary_id")
+  productId         BigInt              @map("product_id")
+  totalQuantity     Int                 @map("total_quantity")
+  fulfillmentType   FulfillmentType     @default(pesan_vendor) @map("fulfillment_type")
+  fulfillmentStatus FulfillmentStatus   @default(none) @map("fulfillment_status")
+  summary           ProductOrderSummary @relation(fields: [summaryId], references: [id], onDelete: Cascade)
+  product           Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
+
+  @@map("summary_products")
 }
