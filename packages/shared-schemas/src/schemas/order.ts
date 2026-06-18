@@ -5,6 +5,7 @@ export const createOrderSchema = z.object({
     (value) => value !== undefined && value !== null,
     { message: 'ID Pelanggan wajib diisi' }
   ),
+  customerPhone: z.string({ message: 'Nomor HP/WA wajib diisi' }).min(1, { message: 'Nomor HP/WA wajib diisi' }),
   totalAmount: z.union([
     z.number(),
     z.string().regex(/^\d+(\.\d{1,2})?$/, { message: 'Format total nominal tidak valid' })
@@ -12,6 +13,7 @@ export const createOrderSchema = z.object({
     (value) => value !== undefined && value !== null,
     { message: 'Total nominal wajib diisi' }
   ),
+  'order-date': z.string({ message: 'Tanggal pesanan wajib diisi' }).regex(/^\d{4}-\d{2}-\d{2}$/, { message: 'Format tanggal pesanan harus YYYY-MM-DD' }),
   items: z.array(
     z.object({
       productId: z.union([z.string(), z.number()]).nullable().optional(),

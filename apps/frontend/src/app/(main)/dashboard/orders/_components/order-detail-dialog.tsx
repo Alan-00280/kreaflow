@@ -10,6 +10,7 @@ import {
   DialogFooter
 } from '@/components/ui/dialog'
 import { getOrderDetailAction } from '@/server/order-actions'
+import { WhatsAppButton } from '@/components/whatsapp-button'
 
 interface OrderDetailDialogProps {
   isOpen: boolean
@@ -53,9 +54,17 @@ export function OrderDetailDialog({ isOpen, onClose, orderId }: OrderDetailDialo
     }).format(d)
   }
 
+  const formatOrderDate = (dateStr: string) => {
+    if (!dateStr) return '-'
+    const d = new Date(dateStr)
+    return new Intl.DateTimeFormat('id-ID', {
+      dateStyle: 'medium'
+    }).format(d)
+  }
+
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-3xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-h-[85vh] overflow-y-auto" style={{maxWidth: "80%"}}>
         <DialogHeader>
           <DialogTitle>Detail Nota Pesanan</DialogTitle>
         </DialogHeader>
@@ -71,7 +80,10 @@ export function OrderDetailDialog({ isOpen, onClose, orderId }: OrderDetailDialo
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground uppercase font-semibold">Nomor Invoice</p>
                 <p className="font-semibold text-lg">{order.invoiceNumber}</p>
-                <p className="text-xs text-muted-foreground">Dibuat: {formatDate(order.createdAt)}</p>
+                <p className="text-xs text-muted-foreground">
+                  Tanggal Transaksi: <span className="font-semibold text-foreground">{formatOrderDate(order['order-date'])}</span>
+                </p>
+                <p className="text-xs text-muted-foreground/85">Dibuat Sistem: {formatDate(order.createdAt)}</p>
               </div>
               <div className="space-y-1 text-right">
                 <p className="text-xs text-muted-foreground uppercase font-semibold">Total Nilai Transaksi</p>
@@ -90,6 +102,10 @@ export function OrderDetailDialog({ isOpen, onClose, orderId }: OrderDetailDialo
                 <div className="grid grid-cols-2 text-sm">
                   <span className="text-muted-foreground">Angkatan/Generasi:</span>
                   <span className="font-medium text-right">{order.customer?.generation || <span className="italic text-muted-foreground/50">Umum</span>}</span>
+                </div>
+                <div className="grid grid-cols-2 text-sm">
+                  <span className="text-muted-foreground">Nomor HP / WA:</span>
+                  <span className="font-medium text-right font-mono text-xs">{order.customer?.phoneNumber || '-'}</span>
                 </div>
               </div>
 
@@ -174,7 +190,14 @@ export function OrderDetailDialog({ isOpen, onClose, orderId }: OrderDetailDialo
           </div>
         )}
 
-        <DialogFooter>
+        <DialogFooter className="flex items-center justify-between sm:justify-between w-full">
+          <div>
+            {order?.customer?.phoneNumber && (
+              <WhatsAppButton phone={order.customer.phoneNumber} name={order.customer.name}>
+                Hubungi via WhatsApp
+              </WhatsAppButton>
+            )}
+          </div>
           <Button type="button" onClick={onClose}>
             Tutup
           </Button>

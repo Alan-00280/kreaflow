@@ -1,15 +1,21 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlusCircle, Save, ArrowLeft } from 'lucide-react'
+import { Calendar as CalendarIcon, PlusCircle, Save, ArrowLeft } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
+import { cn } from '@/lib/utils'
+import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
+import { Calendar } from '@/components/ui/calendar'
+import { PhoneInput } from '@/components/ui/phone-input'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 import { getProductsAction, getProductDetailAction } from '@/server/product-actions'
 import { getBundlesAction, getBundleDetailAction } from '@/server/bundle-actions'
 import { createOrderAction } from '@/server/order-actions'
+import { getCustomersAction } from '@/server/customer-actions'
 import { OrderItemRow } from '../_components/order-item-row'
 
 interface FormItem {
@@ -38,6 +44,11 @@ export default function NewOrderPage() {
   const [invoiceNumber, setInvoiceNumber] = useState('')
   const [customerName, setCustomerName] = useState('')
   const [customerGeneration, setCustomerGeneration] = useState('')
+  const [orderDate, setOrderDate] = useState<Date>(new Date())
+  const [customerPhone, setCustomerPhone] = useState('')
+
+  const [availableCustomers, setAvailableCustomers] = useState<any[]>([])
+  const [selectedCustomerId, setSelectedCustomerId] = useState<string>('new')
   
   // Item list inputs
   const [formItems, setFormItems] = useState<FormItem[]>([])
@@ -62,7 +73,28 @@ export default function NewOrderPage() {
         setAvailableBundles(res.bundles.filter((b: any) => b.isActive))
       }
     })
+    getCustomersAction().then((res) => {
+      if (res.success && res.customers) {
+        setAvailableCustomers(res.customers)
+      }
+    })
   }, [])
+
+  const handleCustomerSelectChange = (val: string) => {
+    setSelectedCustomerId(val)
+    if (val === 'new') {
+      setCustomerName('')
+      setCustomerPhone('')
+      setCustomerGeneration('')
+    } else {
+      const selected = availableCustomers.find(c => c.id === val)
+      if (selected) {
+        setCustomerName(selected.name)
+        setCustomerPhone(selected.phoneNumber || '')
+        setCustomerGeneration(selected.generation ? selected.generation.toString() : '')
+      }
+    }
+  }
 
   // Auto-generate invoice number if empty, for convenience
   useEffect(() => {
@@ -207,8 +239,8 @@ export default function NewOrderPage() {
   const handleSubmitOrder = async (e: React.FormEvent) => {
     e.preventDefault()
 
-    if (!invoiceNumber || !customerName || formItems.length === 0) {
-      toast.error('Harap lengkapi semua field utama dan isi minimal satu item')
+    if (!invoiceNumber || !customerName || !customerPhone || formItems.length === 0) {
+      toast.error('Harap lengkapi semua field utama (termasuk nomor HP/WA) dan isi minimal satu item')
       return
     }
 
@@ -320,10 +352,17 @@ export default function NewOrderPage() {
       }
     }
 
+    const year = orderDate.getFullYear()
+    const month = String(orderDate.getMonth() + 1).padStart(2, '0')
+    const day = String(orderDate.getDate()).padStart(2, '0')
+    const formattedOrderDate = `${year}-${month}-${day}`
+
     const payload = {
       invoiceNumber,
       customerName,
+      customerPhone,
       customerGeneration: customerGeneration ? parseInt(customerGeneration) : null,
+      'order-date': formattedOrderDate,
       items: expandedPayloadItems
     }
 
@@ -360,6 +399,18 @@ export default function NewOrderPage() {
     return sum + (price * item.quantity)
   }, 0)
 
+  const customerOptions = [
+    { value: 'new', label: '++ Pelanggan Baru (Input Manual) ++' },
+    ...availableCustomers.map((c) => ({
+      value: c.id,
+      label: c.name,
+      description: [
+        c.phoneNumber ? `WA: ${c.phoneNumber}` : null,
+        c.generation ? `Angkatan ${c.generation}` : null
+      ].filter(Boolean).join(' | ')
+    }))
+  ]
+
   return (
     <div className="flex flex-col gap-6">
       <div className="flex items-center justify-between">
@@ -380,8 +431,8 @@ export default function NewOrderPage() {
         {/* Main Details Section */}
         <div className="p-4 border rounded-lg bg-card space-y-4 shadow-sm">
           <h3 className="font-semibold text-sm border-b pb-2">Informasi Transaksi</h3>
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            <div className="grid gap-2">
+          <div className="grid grid-cols-1 md:grid-cols-12 gap-4">
+            <div className="grid gap-2 md:col-span-6">
               <Label htmlFor="invoice">Nomor Invoice</Label>
               <Input
                 id="invoice"
@@ -391,7 +442,51 @@ export default function NewOrderPage() {
                 required
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-2 md:col-span-6">
+              <Label>Tanggal Transaksi</Label>
+              <Popover>
+                <PopoverTrigger asChild>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    className={cn(
+                      "w-full justify-start text-left font-normal",
+                      !orderDate && "text-muted-foreground"
+                    )}
+                  >
+                    <CalendarIcon className="mr-2 h-4 w-4" />
+                    {orderDate ? (
+                      new Intl.DateTimeFormat('id-ID', { dateStyle: 'medium' }).format(orderDate)
+                    ) : (
+                      <span>Pilih Tanggal</span>
+                    )}
+                  </Button>
+                </PopoverTrigger>
+                <PopoverContent className="w-auto p-0" align="start">
+                  <Calendar
+                    mode="single"
+                    selected={orderDate}
+                    onSelect={(date) => date && setOrderDate(date)}
+                    initialFocus
+                  />
+                </PopoverContent>
+              </Popover>
+            </div>
+
+            {/* Customer Selector Dropdown */}
+            <div className="grid gap-2 md:col-span-12">
+              <Label>Pilih Pelanggan Terdaftar</Label>
+              <SearchableSelect
+                options={customerOptions}
+                value={selectedCustomerId}
+                onChange={handleCustomerSelectChange}
+                placeholder="Pilih pelanggan..."
+                searchPlaceholder="Cari nama/kontak pelanggan..."
+                emptyMessage="Pelanggan tidak ditemukan."
+              />
+            </div>
+
+            <div className="grid gap-2 md:col-span-5">
               <Label htmlFor="cust-name">Nama Pelanggan</Label>
               <Input
                 id="cust-name"
@@ -399,9 +494,21 @@ export default function NewOrderPage() {
                 onChange={(e) => setCustomerName(e.target.value)}
                 placeholder="Nama Lengkap"
                 required
+                disabled={selectedCustomerId !== 'new'}
               />
             </div>
-            <div className="grid gap-2">
+            <div className="grid gap-2 md:col-span-4">
+              <Label>Nomor HP / WhatsApp</Label>
+              <PhoneInput
+                value={customerPhone}
+                onChange={(val) => setCustomerPhone(val || '')}
+                placeholder="Masukkan Nomor HP/WA"
+                defaultCountry="ID"
+                required
+                disabled={selectedCustomerId !== 'new'}
+              />
+            </div>
+            <div className="grid gap-2 md:col-span-3">
               <Label htmlFor="cust-gen">Angkatan / Generasi (opsional)</Label>
               <Input
                 id="cust-gen"
@@ -409,6 +516,7 @@ export default function NewOrderPage() {
                 value={customerGeneration}
                 onChange={(e) => setCustomerGeneration(e.target.value)}
                 placeholder="Contoh: 2024"
+                disabled={selectedCustomerId !== 'new'}
               />
             </div>
           </div>

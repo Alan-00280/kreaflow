@@ -28,11 +28,13 @@ function serializeOrder(order: any) {
     recordedByUserId: order.recordedByUserId.toString(),
     customerId: order.customerId.toString(),
     totalAmount: order.totalAmount.toString(),
+    'order-date': order.orderDate ? order.orderDate.toISOString().slice(0, 10) : '',
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
     customer: order.customer ? {
       id: order.customer.id.toString(),
       name: order.customer.name,
+      phoneNumber: order.customer.phoneNumber,
       generation: order.customer.generation
     } : null,
     recordedByUser: order.recordedByUser ? {
@@ -197,8 +199,14 @@ orders.openapi(createOrderRoute, async (c) => {
         customer = await tx.customer.create({
           data: {
             name: body.customerName,
+            phoneNumber: body.customerPhone || null,
             generation: body.customerGeneration !== undefined ? body.customerGeneration : null
           }
+        })
+      } else if (body.customerPhone) {
+        customer = await tx.customer.update({
+          where: { id: customer.id },
+          data: { phoneNumber: body.customerPhone }
         })
       }
 
@@ -207,7 +215,8 @@ orders.openapi(createOrderRoute, async (c) => {
           invoiceNumber: body.invoiceNumber,
           recordedByUserId: BigInt(user.id),
           customerId: customer.id,
-          totalAmount: calculatedTotal
+          totalAmount: calculatedTotal,
+          orderDate: new Date(body['order-date'])
         }
       })
 

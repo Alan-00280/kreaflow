@@ -10,6 +10,7 @@ export const orderResponseSchema = z.object({
   recordedByUserId: z.string().openapi({ description: "User ID yang mencatat transaksi", example: "1" }),
   customerId: z.string().openapi({ description: "Customer ID pembeli", example: "1" }),
   totalAmount: z.string().openapi({ description: "Total Nilai Transaksi", example: "120000.00" }),
+  'order-date': z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ description: "Tanggal Transaksi (YYYY-MM-DD)", example: "2026-06-18" }),
   createdAt: z.string().openapi({ description: "Tanggal Transaksi Dibuat", example: "2026-06-18T00:00:00Z" })
 }).openapi('OrderResponse')
 
@@ -46,6 +47,7 @@ export const orderDetailResponseSchema = orderResponseSchema.extend({
   customer: z.object({
     id: z.string(),
     name: z.string(),
+    phoneNumber: z.string().nullable(),
     generation: z.number().nullable()
   }).nullable(),
   recordedByUser: z.object({
@@ -73,7 +75,9 @@ export const orderItemCreateSchema = z.object({
 export const createOrderRequestSchema = z.object({
   invoiceNumber: z.string().min(1).max(50).openapi({ description: "Nomor Invoice Nota Pesanan (Unique)", example: "INV-20260618-001" }),
   customerName: z.string().min(1).max(100).openapi({ description: "Nama Customer/Pelanggan", example: "John Doe" }),
+  customerPhone: z.string().min(1).openapi({ description: "Nomor HP/WhatsApp Pelanggan (Wajib)", example: "08123456789" }),
   customerGeneration: z.number().int().optional().nullable().openapi({ description: "Angkatan/Generasi Customer (opsional)", example: 2024 }),
+  'order-date': z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ description: "Tanggal Transaksi (YYYY-MM-DD)", example: "2026-06-18" }),
   items: z.array(orderItemCreateSchema).min(1).openapi({ description: "Daftar item produk satuan / bundling dalam pesanan" })
 }).openapi('CreateOrderRequest')
 

@@ -51,12 +51,13 @@ model User {
 }
 
 model Customer {
-  id         BigInt   @id @default(autoincrement())
-  name       String   @db.VarChar(100)
-  generation Int?
-  createdAt  DateTime @default(now()) @map("created_at")
-  updatedAt  DateTime @updatedAt @map("updated_at")
-  orders     Order[]
+  id          BigInt   @id @default(autoincrement())
+  name        String   @db.VarChar(100)
+  phoneNumber String?  @map("phone_number") @db.VarChar(20)
+  generation  Int?
+  createdAt   DateTime @default(now()) @map("created_at")
+  updatedAt   DateTime @updatedAt @map("updated_at")
+  orders      Order[]
 
   @@map("customers")
 }
@@ -127,6 +128,7 @@ model Order {
   recordedByUserId BigInt      @map("recorded_by_user_id")
   customerId       BigInt      @map("customer_id")
   totalAmount      Decimal     @map("total_amount") @db.Decimal(12, 2)
+  orderDate        DateTime    @map("order_date") @db.Date
   createdAt        DateTime    @default(now()) @map("created_at")
   updatedAt        DateTime    @updatedAt @map("updated_at")
   recordedByUser   User        @relation(fields: [recordedByUserId], references: [id], onDelete: Restrict)

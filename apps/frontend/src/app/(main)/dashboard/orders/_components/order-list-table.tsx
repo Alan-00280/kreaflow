@@ -2,6 +2,7 @@
 
 import { Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
+import { WhatsAppButton } from '@/components/whatsapp-button'
 import {
   Table,
   TableBody,
@@ -17,9 +18,11 @@ interface Order {
   recordedByUserId: string
   customerId: string
   totalAmount: string
+  'order-date': string
   createdAt: string
   customer?: {
     name: string
+    phoneNumber: string | null
     generation: number | null
   }
   recordedByUser?: {
@@ -51,6 +54,16 @@ export function OrderListTable({ orders, onView }: OrderListTableProps) {
     }).format(d)
   }
 
+  const formatOrderDate = (dateStr: string) => {
+    if (!dateStr) return '-'
+    const d = new Date(dateStr)
+    return new Intl.DateTimeFormat('id-ID', {
+      dateStyle: 'medium'
+    }).format(d)
+  }
+
+
+
   if (orders.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center p-8 text-center border border-dashed rounded-lg bg-card">
@@ -69,7 +82,7 @@ export function OrderListTable({ orders, onView }: OrderListTableProps) {
             <TableHead>Dicatat Oleh</TableHead>
             <TableHead className="text-right w-40">Total Transaksi</TableHead>
             <TableHead>Tanggal Transaksi</TableHead>
-            <TableHead className="text-center w-28">Aksi</TableHead>
+            <TableHead className="text-center w-32">Aksi</TableHead>
           </TableRow>
         </TableHeader>
         <TableBody>
@@ -94,19 +107,31 @@ export function OrderListTable({ orders, onView }: OrderListTableProps) {
                 {formatRupiah(order.totalAmount)}
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">
-                {formatDate(order.createdAt)}
+                {formatOrderDate(order['order-date'])}
               </TableCell>
-              <TableCell className="text-center">
-                <Button
-                  size="icon"
-                  variant="outline"
-                  className="h-8 w-8 hover:text-primary hover:border-primary"
-                  onClick={() => onView(order.id)}
-                  type="button"
-                  title="Detail Transaksi"
-                >
-                  <Eye className="h-4 w-4" />
-                </Button>
+              <TableCell>
+                <div className="flex items-center justify-center gap-1.5">
+                  <Button
+                    size="icon"
+                    variant="outline"
+                    className="h-8 w-8 hover:text-primary hover:border-primary"
+                    onClick={() => onView(order.id)}
+                    type="button"
+                    title="Detail Transaksi"
+                  >
+                    <Eye className="h-4 w-4" />
+                  </Button>
+                  {order.customer?.phoneNumber ? (
+                    <WhatsAppButton
+                      phone={order.customer.phoneNumber}
+                      name={order.customer.name}
+                      size="icon"
+                      variant="outline"
+                      title="Hubungi via WhatsApp"
+                      className="h-8 w-8"
+                    />
+                  ) : null}
+                </div>
               </TableCell>
             </TableRow>
           ))}

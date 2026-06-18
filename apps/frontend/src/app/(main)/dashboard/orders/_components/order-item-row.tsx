@@ -5,6 +5,7 @@ import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
+import { SearchableSelect } from '@/components/ui/searchable-select'
 
 interface FormItem {
   id: string
@@ -58,6 +59,18 @@ export function OrderItemRow({
     }).format(numeric)
   }
 
+  const catalogOptions = item.type === 'product'
+    ? availableProducts.map(p => ({
+        value: p.id,
+        label: p.name,
+        description: `Produk Satuan - ${formatRupiah(p.basePrice)}`
+      }))
+    : availableBundles.map(b => ({
+        value: b.id,
+        label: b.name,
+        description: `Paket Bundling - ${formatRupiah(b.bundlePrice)}`
+      }))
+
   return (
     <div className="p-4 border rounded-lg bg-card space-y-4 shadow-sm relative">
       {/* Remove Row Button */}
@@ -88,25 +101,14 @@ export function OrderItemRow({
         {/* Catalog Selection */}
         <div className="grid gap-1.5 md:col-span-2">
           <Label className="text-xs">Pilihan Katalog</Label>
-          <NativeSelect
+          <SearchableSelect
+            options={catalogOptions}
             value={item.itemId}
-            onChange={(e) => onChange(index, 'itemId', e.target.value)}
-            required
-          >
-            <NativeSelectOption value="">-- Pilih Katalog --</NativeSelectOption>
-            {item.type === 'product'
-              ? availableProducts.map(p => (
-                  <NativeSelectOption key={p.id} value={p.id}>
-                    {p.name} ({formatRupiah(p.basePrice)})
-                  </NativeSelectOption>
-                ))
-              : availableBundles.map(b => (
-                  <NativeSelectOption key={b.id} value={b.id}>
-                    {b.name} ({formatRupiah(b.bundlePrice)})
-                  </NativeSelectOption>
-                ))
-            }
-          </NativeSelect>
+            onChange={(val) => onChange(index, 'itemId', val)}
+            placeholder="Pilih katalog..."
+            searchPlaceholder="Cari nama katalog..."
+            emptyMessage="Katalog tidak ditemukan."
+          />
         </div>
 
         {/* Quantity */}
