@@ -15,6 +15,10 @@ import {
 import { SidebarMenu, SidebarMenuButton, SidebarMenuItem, useSidebar } from "@/components/ui/sidebar";
 import { getInitials } from "@/lib/utils";
 
+import { useRouter } from 'next/navigation'
+import { toast } from 'sonner'
+import { logoutAction } from '@/server/auth-actions'
+
 export function NavUser({
   user,
 }: {
@@ -25,6 +29,22 @@ export function NavUser({
   };
 }) {
   const { isMobile } = useSidebar();
+  const router = useRouter()
+
+  const handleLogout = async () => {
+  try {
+      const res = await logoutAction()
+      if (res.success) {
+        toast.success('Logout berhasil')
+        router.push('/auth/v2/login')
+        router.refresh()
+      } else {
+        toast.error('Logout gagal', { description: res.error })
+      }
+    } catch (err) {
+      toast.error('Terjadi kesalahan saat logout')
+    }
+  }
 
   return (
     <SidebarMenu>
@@ -80,7 +100,7 @@ export function NavUser({
               </DropdownMenuItem>
             </DropdownMenuGroup>
             <DropdownMenuSeparator />
-            <DropdownMenuItem>
+            <DropdownMenuItem onClick={handleLogout} className="text-destructive focus:text-destructive cursor-pointer">
               <LogOut />
               Log out
             </DropdownMenuItem>
