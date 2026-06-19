@@ -104,6 +104,7 @@ export function Inventory() {
                       </text>
                     );
                   }
+                  return null;
                 }}
               />
             </Pie>

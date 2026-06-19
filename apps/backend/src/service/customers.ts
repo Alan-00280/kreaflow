@@ -17,7 +17,6 @@ customers.use('*', authMiddleware)
 
 // Helper to serialize Customer BigInt fields to String safely
 function serializeCustomer(customer: any) {
-  if (!customer) return null
   return {
     id: customer.id.toString(),
     name: customer.name,

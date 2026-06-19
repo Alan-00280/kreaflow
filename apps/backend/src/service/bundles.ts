@@ -23,7 +23,6 @@ bundles.use('*', authMiddleware)
 
 // Helper to serialize BigInt fields to String safely before JSON serialization
 function serializeBundle(bundle: any) {
-  if (!bundle) return null
   return {
     id: bundle.id.toString(),
     name: bundle.name,
@@ -119,7 +118,9 @@ bundles.openapi(createBundleRoute, async (c) => {
     const authCheck = requireRole(['admin'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) {
+      return c.json({ error: 'Forbidden: Hanya Admin yang diizinkan' }, 403)
+    }
 
     const prisma = c.get('prisma')
     const body = c.req.valid('json')
@@ -170,7 +171,9 @@ bundles.openapi(updateBundleRoute, async (c) => {
     const authCheck = requireRole(['admin'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) {
+      return c.json({ error: 'Forbidden: Hanya Admin yang diizinkan' }, 403)
+    }
 
     const prisma = c.get('prisma')
     const { id } = c.req.valid('param')
@@ -238,6 +241,7 @@ bundles.openapi(updateBundleRoute, async (c) => {
       })
     })
 
+    if (!bundle) return c.json({ error: 'Paket bundling tidak ditemukan setelah update' }, 404)
     return c.json(serializeBundle(bundle), 200)
   } catch (error: any) {
     console.error('Update bundle error:', error)
@@ -252,7 +256,9 @@ bundles.openapi(deleteBundleRoute, async (c) => {
     const authCheck = requireRole(['admin'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) {
+      return c.json({ error: 'Forbidden: Hanya Admin yang diizinkan' }, 403)
+    }
 
     const prisma = c.get('prisma')
     const { id } = c.req.valid('param')

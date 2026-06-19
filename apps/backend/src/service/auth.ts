@@ -1,6 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { loginRoute, logoutRoute } from '../routes/auth.js'
-import { loginSchema } from '@kreaflow/shared-schemas'
 import { PrismaClient } from '../generated/prisma/client.js'
 import bcrypt from 'bcrypt'
 import { setCookie, deleteCookie } from 'hono/cookie'
@@ -18,14 +17,8 @@ auth.openapi(loginRoute, async (c) => {
   try {
     const prisma = c.get('prisma')
     
-    // Extract JSON body payload
-    const body = await c.req.json().catch(() => ({}))
-    const { email, password } = body
-
-    // Input Verification Guard
-    if (!email || !password) {
-      return c.json({ error: 'Data login tidak lengkap' }, 400)
-    }
+    // Extract JSON body payload (already validated by Zod loginRequestSchema)
+    const { email, password } = c.req.valid('json')
 
     // Database Inspection
     const user = await prisma.user.findUnique({

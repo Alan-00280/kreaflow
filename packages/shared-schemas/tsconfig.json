@@ -1,7 +1,7 @@
 {
   "extends": "@kreaflow/ts-config/base.json",
   "compilerOptions": {
-    "ignoreDeprecations": "6.0",
+    // "ignoreDeprecations": "6.0",
     "noEmit": false,        /* Dipaksa false agar folder dist mau diproduksi */
     "declaration": true,    /* Menghasilkan file cetakan .d.ts untuk autocomplete */
     "declarationMap": true, /* Menghubungkan klik definisi ke source code asli */

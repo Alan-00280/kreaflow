@@ -22,7 +22,6 @@ products.use('*', authMiddleware)
 
 // Helper to serialize BigInt fields to String safely before JSON serialization
 function serializeProduct(product: any) {
-  if (!product) return null
   return {
     id: product.id.toString(),
     name: product.name,
@@ -101,7 +100,7 @@ products.openapi(createProductRoute, async (c) => {
     const authCheck = requireRole(['admin'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) return c.json({ error: 'Forbidden: Hanya Admin yang diizinkan' }, 403) as any
 
     const prisma = c.get('prisma')
     const body = c.req.valid('json')
@@ -147,7 +146,7 @@ products.openapi(updateProductRoute, async (c) => {
     const authCheck = requireRole(['admin'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) return c.json({ error: 'Forbidden: Hanya Admin yang diizinkan' }, 403) as any
 
     const prisma = c.get('prisma')
     const { id } = c.req.valid('param')
@@ -223,7 +222,7 @@ products.openapi(deleteProductRoute, async (c) => {
     const authCheck = requireRole(['admin'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) return c.json({ error: 'Forbidden: Hanya Admin yang diizinkan' }, 403) as any
 
     const prisma = c.get('prisma')
     const { id } = c.req.valid('param')

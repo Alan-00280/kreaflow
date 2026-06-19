@@ -61,6 +61,7 @@ export function InsightCards() {
                         </text>
                       );
                     }
+                    return null;
                   }}
                 />
               </Pie>
