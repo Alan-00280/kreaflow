@@ -119,6 +119,11 @@ export const listSummariesRoute = createRoute({
   tags: ['Product Order Summaries'],
   summary: 'Daftar Ringkasan Pesanan (Admin & Operator)',
   description: 'Mengambil daftar seluruh ringkasan pesanan.',
+  request: {
+    query: z.object({
+      includeTrashed: z.enum(['true', 'false']).optional().openapi({ description: "Apakah menyertakan summary di sampah (Admin Only)", example: "true" })
+    }).optional()
+  },
   responses: {
     200: {
       content: {
@@ -298,3 +303,78 @@ export const exportSummaryProductRoute = createRoute({
     }
   }
 })
+
+export const trashSummaryRequestSchema = z.object({
+  isTrashed: z.boolean().openapi({ description: "Status apakah summary dibuang ke sampah atau tidak", example: true })
+}).openapi('TrashSummaryRequest')
+
+export const trashSummaryRoute = createRoute({
+  method: 'patch',
+  path: '/{id}/trash',
+  tags: ['Product Order Summaries'],
+  summary: 'Memindahkan atau memulihkan Ringkasan Pesanan ke/dari Sampah (Admin Only)',
+  description: 'Mengubah status isTrashed dari ringkasan pesanan. Hanya Admin yang berwenang.',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ description: "ID Ringkasan Pesanan", example: "1" })
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: trashSummaryRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({ success: z.boolean(), message: z.string() })
+        }
+      },
+      description: 'Status sampah ringkasan pesanan berhasil diperbarui'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Request payload tidak valid'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    403: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Forbidden: Hanya Admin yang berwenang'
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Ringkasan pesanan tidak ditemukan'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+

@@ -6,7 +6,8 @@ import {
   listSummariesRoute,
   getSummaryDetailRoute,
   updateSummaryProductsRoute,
-  exportSummaryProductRoute
+  exportSummaryProductRoute,
+  trashSummaryRoute
 } from '../routes/product-order-summaries.js'
 
 type ContextWithPrisma = {
@@ -28,6 +29,7 @@ function serializeSummary(summary: any) {
     name: summary.name,
     orderStartedDate: summary.orderStartedDate ? summary.orderStartedDate.toISOString().slice(0, 10) : '',
     orderEndDate: summary.orderEndDate ? summary.orderEndDate.toISOString().slice(0, 10) : '',
+    isTrashed: summary.isTrashed,
     createdAt: summary.createdAt.toISOString(),
     summaryProducts: summary.summaryProducts ? summary.summaryProducts.map((sp: any) => ({
       id: sp.id.toString(),
@@ -159,7 +161,16 @@ productOrderSummaries.openapi(listSummariesRoute, async (c) => {
     if (!isAuthorized) return c.json({ error: 'Forbidden' }, 403) as any
 
     const prisma = c.get('prisma')
+    const user = c.get('user') as UserSession | undefined
+    const { includeTrashed } = c.req.valid('query') || {}
+
+    let whereClause: any = { isTrashed: false }
+    if (user?.role === 'admin' && includeTrashed === 'true') {
+      whereClause = { isTrashed: true }
+    }
+
     const list = await prisma.productOrderSummary.findMany({
+      where: whereClause,
       include: {
         summaryProducts: {
           include: {
@@ -190,6 +201,7 @@ productOrderSummaries.openapi(getSummaryDetailRoute, async (c) => {
     const prisma = c.get('prisma')
     const { id } = c.req.valid('param')
 
+    const user = c.get('user') as UserSession | undefined
     const summary = await prisma.productOrderSummary.findUnique({
       where: { id: BigInt(id) },
       include: {
@@ -203,6 +215,10 @@ productOrderSummaries.openapi(getSummaryDetailRoute, async (c) => {
 
     if (!summary) {
       return c.json({ error: 'Ringkasan pesanan tidak ditemukan' }, 404)
+    }
+
+    if (user?.role === 'operator' && summary.isTrashed) {
+      return c.json({ error: 'Ringkasan pesanan tidak ditemukan atau berada di dalam sampah' }, 404)
     }
 
     return c.json(serializeSummary(summary), 200)
@@ -421,6 +437,48 @@ productOrderSummaries.openapi(exportSummaryProductRoute, async (c) => {
 
   } catch (error: any) {
     console.error('Export summary product error:', error)
+    return c.json({ error: 'Terjadi kesalahan internal server', detail: error.message }, 500)
+  }
+})
+
+// PATCH /:id/trash - Move or restore summary to/from trash
+productOrderSummaries.openapi(trashSummaryRoute, async (c) => {
+  try {
+    // RBAC check: Admin only
+    const authCheck = requireRole(['admin'])
+    let isAuthorized = false
+    await authCheck(c, async () => { isAuthorized = true })
+    if (!isAuthorized) {
+      return c.json({ error: 'Forbidden: Hanya Admin yang dapat memindahkan summary ke sampah' }, 403)
+    }
+
+    const prisma = c.get('prisma')
+    const { id } = c.req.valid('param')
+    const { isTrashed } = c.req.valid('json')
+
+    const summaryId = BigInt(id)
+
+    // Check if summary exists
+    const summary = await prisma.productOrderSummary.findUnique({
+      where: { id: summaryId }
+    })
+    if (!summary) {
+      return c.json({ error: 'Ringkasan pesanan tidak ditemukan' }, 404)
+    }
+
+    // Update isTrashed status
+    await prisma.productOrderSummary.update({
+      where: { id: summaryId },
+      data: { isTrashed }
+    })
+
+    const message = isTrashed
+      ? 'Ringkasan pesanan berhasil dipindahkan ke sampah'
+      : 'Ringkasan pesanan berhasil dipulihkan dari sampah'
+
+    return c.json({ success: true, message }, 200)
+  } catch (error: any) {
+    console.error('Trash summary error:', error)
     return c.json({ error: 'Terjadi kesalahan internal server', detail: error.message }, 500)
   }
 })

@@ -1,7 +1,7 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { PlusCircle, ClipboardList, Calendar as CalendarIcon, ArrowRight } from 'lucide-react'
+import { PlusCircle, ClipboardList, Calendar as CalendarIcon, ArrowRight, Trash2, RotateCcw } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
@@ -29,7 +29,8 @@ import {
 } from '@/components/ui/table'
 import {
   getProductOrderSummariesAction,
-  createProductOrderSummaryAction
+  createProductOrderSummaryAction,
+  trashProductOrderSummaryAction
 } from '@/server/product-order-summary-actions'
 
 interface ProductOrderSummary {
@@ -47,6 +48,7 @@ export default function ProductOrderSummariesPage() {
 
   const [summaries, setSummaries] = useState<ProductOrderSummary[]>([])
   const [isLoading, setIsLoading] = useState(true)
+  const [currentTab, setCurrentTab] = useState<'active' | 'trash'>('active')
   
   // Creation dialog state
   const [isCreateOpen, setIsCreateOpen] = useState(false)
@@ -57,7 +59,7 @@ export default function ProductOrderSummariesPage() {
 
   const fetchSummaries = async () => {
     setIsLoading(true)
-    const res = await getProductOrderSummariesAction()
+    const res = await getProductOrderSummariesAction(currentTab === 'trash')
     if (res.success && res.summaries) {
       setSummaries(res.summaries)
     } else {
@@ -70,7 +72,19 @@ export default function ProductOrderSummariesPage() {
     if (session) {
       fetchSummaries()
     }
-  }, [session])
+  }, [session, currentTab])
+
+  const handleTrashToggle = async (id: string, isTrashed: boolean) => {
+    const actionText = isTrashed ? 'membuang ke sampah' : 'memulihkan'
+    const toastId = toast.loading(`Sedang ${actionText} ringkasan pesanan...`)
+    const res = await trashProductOrderSummaryAction(id, isTrashed)
+    if (res.success) {
+      toast.success(res.message || `Berhasil ${actionText} ringkasan pesanan`, { id: toastId })
+      fetchSummaries()
+    } else {
+      toast.error(`Gagal ${actionText} ringkasan pesanan`, { id: toastId, description: res.error })
+    }
+  }
 
   const formatDateString = (dateStr: string) => {
     if (!dateStr) return '-'
@@ -146,20 +160,53 @@ export default function ProductOrderSummariesPage() {
         )}
       </div>
 
+      {isAdmin && (
+        <div className="flex p-1 bg-muted/60 rounded-xl max-w-xs border backdrop-blur-xs">
+          <button
+            type="button"
+            onClick={() => setCurrentTab('active')}
+            className={cn(
+              'flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200',
+              currentTab === 'active'
+                ? 'bg-background text-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Aktif
+          </button>
+          <button
+            type="button"
+            onClick={() => setCurrentTab('trash')}
+            className={cn(
+              'flex-1 py-1.5 text-xs font-semibold rounded-lg transition-all duration-200',
+              currentTab === 'trash'
+                ? 'bg-background text-foreground shadow-xs'
+                : 'text-muted-foreground hover:text-foreground'
+            )}
+          >
+            Sampah
+          </button>
+        </div>
+      )}
+
       {isLoading ? (
         <div className="py-12 text-center text-sm text-muted-foreground">Memuat data ringkasan pesanan...</div>
       ) : summaries.length === 0 ? (
         <div className="flex flex-col items-center justify-center p-12 text-center border border-dashed rounded-lg bg-card space-y-3">
           <ClipboardList className="h-10 w-10 text-muted-foreground opacity-50" />
           <div>
-            <h3 className="font-semibold text-base">Belum ada ringkasan pesanan</h3>
-            <p className="text-sm text-muted-foreground">
-              {isAdmin
+            <h3 className="font-semibold text-base">
+              {currentTab === 'trash' ? 'Tempat sampah kosong' : 'Belum ada ringkasan pesanan'}
+            </h3>
+            <p className="text-sm text-muted-foreground mt-1">
+              {currentTab === 'trash'
+                ? 'Tidak ada ringkasan pesanan yang dibuang.'
+                : isAdmin
                 ? "Mulai dengan membuat ringkasan pesanan berdasarkan rentang tanggal open PO."
                 : "Belum ada ringkasan pesanan yang dicatat oleh Administrator."}
             </p>
           </div>
-          {isAdmin && (
+          {isAdmin && currentTab === 'active' && (
             <Button onClick={() => setIsCreateOpen(true)} size="sm">
               Buat Ringkasan Pertama
             </Button>
@@ -174,25 +221,64 @@ export default function ProductOrderSummariesPage() {
                 <TableHead>Mulai Pesanan</TableHead>
                 <TableHead>Akhir Pesanan</TableHead>
                 <TableHead>Tanggal Dibuat</TableHead>
-                <TableHead className="text-center w-32">Aksi</TableHead>
+                <TableHead className="text-center w-36">Aksi</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
               {summaries.map((s) => (
-                <TableRow key={s.id} className="hover:bg-accent/40 transition-colors cursor-pointer" onClick={() => router.push(`/dashboard/product-order-summaries/${s.id}`)}>
+                <TableRow
+                  key={s.id}
+                  className={cn(
+                    'hover:bg-accent/40 transition-colors',
+                    currentTab === 'active' ? 'cursor-pointer' : 'cursor-default'
+                  )}
+                  onClick={() => {
+                    if (currentTab === 'active') {
+                      router.push(`/dashboard/product-order-summaries/${s.id}`)
+                    }
+                  }}
+                >
                   <TableCell className="font-semibold text-primary">{s.name}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{formatDateString(s.orderStartedDate)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{formatDateString(s.orderEndDate)}</TableCell>
                   <TableCell className="text-muted-foreground text-sm">{formatDateTimeString(s.createdAt)}</TableCell>
                   <TableCell className="text-center" onClick={(e) => e.stopPropagation()}>
-                    <Button
-                      variant="ghost"
-                      size="sm"
-                      onClick={() => router.push(`/dashboard/product-order-summaries/${s.id}`)}
-                      className="flex items-center gap-1 mx-auto hover:text-primary"
-                    >
-                      Buka Kerja <ArrowRight className="h-4 w-4" />
-                    </Button>
+                    <div className="flex items-center justify-center gap-2">
+                      {currentTab === 'active' ? (
+                        <>
+                          <Button
+                            variant="ghost"
+                            size="sm"
+                            onClick={() => router.push(`/dashboard/product-order-summaries/${s.id}`)}
+                            className="flex items-center gap-1 hover:text-primary h-8"
+                          >
+                            Buka Kerja <ArrowRight className="h-4 w-4" />
+                          </Button>
+                          {isAdmin && (
+                            <Button
+                              variant="ghost"
+                              size="icon"
+                              onClick={() => handleTrashToggle(s.id, true)}
+                              className="h-8 w-8 text-destructive hover:bg-destructive/10"
+                              title="Buang ke Sampah"
+                            >
+                              <Trash2 className="h-4 w-4" />
+                            </Button>
+                          )}
+                        </>
+                      ) : (
+                        isAdmin && (
+                          <Button
+                            variant="outline"
+                            size="sm"
+                            onClick={() => handleTrashToggle(s.id, false)}
+                            className="flex items-center gap-1 hover:text-emerald-600 hover:border-emerald-200 h-8 text-xs font-semibold"
+                          >
+                            <RotateCcw className="h-3.5 w-3.5" /> Pulihkan
+                          </Button>
+                        )
+                      )}
+                    </div>
                   </TableCell>
                 </TableRow>
               ))}

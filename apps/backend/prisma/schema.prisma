@@ -191,6 +191,7 @@ model ProductOrderSummary {
   name             String           @db.VarChar(150)
   orderStartedDate DateTime         @map("order_started_date") @db.Date
   orderEndDate     DateTime         @map("order_end_date") @db.Date
+  isTrashed        Boolean          @default(false) @map("is_trashed")
   createdAt        DateTime         @default(now()) @map("created_at")
   summaryProducts  SummaryProduct[]
 

@@ -14,11 +14,14 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return headers
 }
 
-export async function getProductOrderSummariesAction() {
+export async function getProductOrderSummariesAction(includeTrashed?: boolean) {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
     const headers = await getAuthHeaders()
-    const response = await fetch(`${backendUrl}/product-order-summaries`, {
+    const url = includeTrashed
+      ? `${backendUrl}/product-order-summaries?includeTrashed=true`
+      : `${backendUrl}/product-order-summaries`
+    const response = await fetch(url, {
       method: 'GET',
       headers,
       next: { revalidate: 0 }
@@ -124,6 +127,28 @@ export async function exportProductOrderSummaryCsvAction(summaryId: string, prod
     return { success: true, csvText }
   } catch (error: any) {
     console.error('exportProductOrderSummaryCsvAction error:', error)
+    return { success: false, error: 'Gagal terhubung ke backend' }
+  }
+}
+
+export async function trashProductOrderSummaryAction(id: string, isTrashed: boolean) {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${backendUrl}/product-order-summaries/${id}/trash`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify({ isTrashed })
+    })
+
+    const body = await response.json()
+    if (!response.ok) {
+      return { success: false, error: body.error || 'Gagal memperbarui status sampah ringkasan pesanan' }
+    }
+
+    return { success: true, message: body.message }
+  } catch (error: any) {
+    console.error('trashProductOrderSummaryAction error:', error)
     return { success: false, error: 'Gagal terhubung ke backend' }
   }
 }
