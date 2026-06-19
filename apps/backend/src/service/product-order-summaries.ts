@@ -23,7 +23,6 @@ productOrderSummaries.use('*', authMiddleware)
 
 // Helper to serialize BigInt fields to String safely and map 'none' enum status back to 'null'
 function serializeSummary(summary: any) {
-  if (!summary) return null
   return {
     id: summary.id.toString(),
     name: summary.name,
@@ -52,7 +51,7 @@ productOrderSummaries.openapi(createSummaryRoute, async (c) => {
     const authCheck = requireRole(['admin'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) return c.json({ error: 'Forbidden' }, 403) as any
 
     const prisma = c.get('prisma')
     const { name, orderStartedDate, orderEndDate } = c.req.valid('json')
@@ -130,6 +129,7 @@ productOrderSummaries.openapi(createSummaryRoute, async (c) => {
       })
     })
 
+    if (!createdSummary) return c.json({ error: 'Gagal membuat ringkasan pesanan' }, 500)
     return c.json(serializeSummary(createdSummary), 201)
   } catch (error: any) {
     console.error('Create product order summary error:', error)
@@ -143,7 +143,7 @@ productOrderSummaries.openapi(listSummariesRoute, async (c) => {
     const authCheck = requireRole(['admin', 'operator'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) return c.json({ error: 'Forbidden' }, 403) as any
 
     const prisma = c.get('prisma')
     const list = await prisma.productOrderSummary.findMany({
@@ -172,7 +172,7 @@ productOrderSummaries.openapi(getSummaryDetailRoute, async (c) => {
     const authCheck = requireRole(['admin', 'operator'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) return c.json({ error: 'Forbidden' }, 403) as any
 
     const prisma = c.get('prisma')
     const { id } = c.req.valid('param')
@@ -205,7 +205,7 @@ productOrderSummaries.openapi(updateSummaryProductsRoute, async (c) => {
     const authCheck = requireRole(['admin', 'operator'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) return c.json({ error: 'Forbidden' }, 403) as any
 
     const prisma = c.get('prisma')
     const { id } = c.req.valid('param')
@@ -251,7 +251,7 @@ productOrderSummaries.openapi(exportSummaryProductRoute, async (c) => {
     const authCheck = requireRole(['admin', 'operator'])
     let isAuthorized = false
     await authCheck(c, async () => { isAuthorized = true })
-    if (!isAuthorized) return
+    if (!isAuthorized) return c.json({ error: 'Forbidden' }, 403) as any
 
     const prisma = c.get('prisma')
     const { id, productId } = c.req.valid('param')

@@ -113,6 +113,14 @@ export const getBundleDetailRoute = createRoute({
       },
       description: 'Paket bundling tidak ditemukan',
     },
+    403: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema,
+        },
+      },
+      description: 'Forbidden: Operator tidak berwenang melihat bundle tidak aktif',
+    },
     500: {
       content: {
         'application/json': {

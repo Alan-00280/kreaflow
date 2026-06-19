@@ -1,5 +1,5 @@
 import type { Context, Next } from "hono";
-import logger from "../lib/logger";
+import logger from "../lib/logger.js";
 
 export const loggerMiddleware = async (c: Context, next: Next) => {
 	const start = Date.now();

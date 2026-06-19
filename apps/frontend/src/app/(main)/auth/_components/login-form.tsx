@@ -90,7 +90,7 @@ export function LoginForm() {
         <Controller
           control={form.control}
           name="remember"
-          render={({ field, fieldState }) => (
+          render={({ fieldState }) => (
             <Field orientation="horizontal" data-invalid={fieldState.invalid}>
               {/* <Checkbox
                 id="login-remember"

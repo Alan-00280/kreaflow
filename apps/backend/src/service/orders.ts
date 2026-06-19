@@ -21,7 +21,6 @@ orders.use('*', authMiddleware)
 
 // Helper to serialize BigInt fields to String safely before JSON serialization
 function serializeOrder(order: any) {
-  if (!order) return null
   return {
     id: order.id.toString(),
     invoiceNumber: order.invoiceNumber,
@@ -93,7 +92,13 @@ orders.openapi(createOrderRoute, async (c) => {
 
     // C. Validate items and lock prices
     let calculatedTotal = 0
-    const orderItemsToCreate = []
+    const orderItemsToCreate: Array<{
+      productId: bigint | null
+      bundleId: bigint | null
+      quantity: number
+      priceAtPurchase: number
+      details: Array<{ attributeId: string; selectedOptionId?: string | null; customValue?: string | null }>
+    }> = []
 
     for (const item of body.items) {
       let price = 0

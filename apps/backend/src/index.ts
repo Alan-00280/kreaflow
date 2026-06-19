@@ -5,6 +5,7 @@ import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import withPrisma from "./lib/prisma.js";
 import { loggerMiddleware } from "./middlewares/logger.js";
 import { swaggerUI } from "@hono/swagger-ui";
+import { cors } from "hono/cors";
 import logger from "./lib/logger.js";
 import auth from "./service/auth.js";
 import products from "./service/products.js";
@@ -22,6 +23,28 @@ type ContextWithPrisma = {
 };
 
 const app = new OpenAPIHono<ContextWithPrisma>();
+
+// Global CORS middleware
+app.use(
+  "*",
+  cors({
+    origin: (origin) => {
+      if (
+        !origin ||
+        origin === "https://crawling-emu-unethical.ngrok-free.dev" ||
+        origin.endsWith(".ngrok-free.dev") ||
+        /^http:\/\/localhost:\d+$/.test(origin) ||
+        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+      ) {
+        return origin;
+      }
+      return "http://localhost:3000";
+    },
+    credentials: true,
+    allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
+    allowHeaders: ["Content-Type", "Authorization", "X-Requested-With"],
+  })
+);
 
 // Global logger middleware
 app.use("*", withPrisma);
