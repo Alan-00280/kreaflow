@@ -15,6 +15,7 @@ import {
 } from '@/components/ui/dialog'
 import { NativeSelect } from '@/components/ui/native-select'
 import { getProductDetailAction } from '@/server/product-actions'
+import { getVariantGroupsAction } from '@/server/variant-group-actions'
 
 interface Product {
   id: string
@@ -22,6 +23,7 @@ interface Product {
   basePrice: string
   isActive: boolean
   createdAt: string
+  variantGroupId?: string | null
 }
 
 interface AttributeForm {
@@ -45,14 +47,24 @@ export function ProductDialog({ isOpen, onClose, product, onSubmit, isReadOnly =
   const [isActive, setIsActive] = useState(true)
   const [attributes, setAttributes] = useState<AttributeForm[]>([])
   const [isLoading, setIsLoading] = useState(false)
+  const [variantGroupId, setVariantGroupId] = useState<string>('')
+  const [variantGroups, setVariantGroups] = useState<any[]>([])
 
   useEffect(() => {
     if (isOpen) {
+      // Fetch available variant groups
+      getVariantGroupsAction().then((res) => {
+        if (res.success && res.variantGroups) {
+          setVariantGroups(res.variantGroups)
+        }
+      })
+
       if (product) {
         setIsLoading(true)
         setName(product.name)
         setBasePrice(product.basePrice)
         setIsActive(product.isActive)
+        setVariantGroupId(product.variantGroupId || '')
         
         getProductDetailAction(product.id).then((res) => {
           if (res.success && res.product) {
@@ -63,6 +75,7 @@ export function ProductDialog({ isOpen, onClose, product, onSubmit, isReadOnly =
               optionsString: attr.options ? attr.options.map((o: any) => o.optionValue).join(', ') : ''
             }))
             setAttributes(fetchedAttrs)
+            setVariantGroupId(res.product.variantGroupId || '')
           }
           setIsLoading(false)
         })
@@ -71,6 +84,7 @@ export function ProductDialog({ isOpen, onClose, product, onSubmit, isReadOnly =
         setBasePrice('')
         setIsActive(true)
         setAttributes([])
+        setVariantGroupId('')
         setIsLoading(false)
       }
     }
@@ -115,6 +129,7 @@ export function ProductDialog({ isOpen, onClose, product, onSubmit, isReadOnly =
       name,
       basePrice: parseFloat(basePrice),
       isActive,
+      variantGroupId: variantGroupId || null,
       attributes: formattedAttributes
     }
 
@@ -159,6 +174,23 @@ export function ProductDialog({ isOpen, onClose, product, onSubmit, isReadOnly =
                   required
                   disabled={isReadOnly}
                 />
+              </div>
+
+              <div className="grid gap-2">
+                <Label htmlFor="prod-variant-group">Kelompok Varian (Opsional)</Label>
+                <NativeSelect
+                  id="prod-variant-group"
+                  value={variantGroupId}
+                  onChange={(e) => setVariantGroupId(e.target.value)}
+                  disabled={isReadOnly}
+                >
+                  <option value="">-- Tanpa Kelompok Varian (Produk Standalone) --</option>
+                  {variantGroups.map((vg) => (
+                    <option key={vg.id} value={vg.id}>
+                      {vg.name}
+                    </option>
+                  ))}
+                </NativeSelect>
               </div>
 
               <div className="flex items-center gap-2">

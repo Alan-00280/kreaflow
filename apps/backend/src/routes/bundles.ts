@@ -22,9 +22,14 @@ export const bundleProductProductSchema = z.object({
 
 export const bundleProductResponseSchema = z.object({
   id: z.string().openapi({ example: "1" }),
-  productId: z.string().openapi({ example: "5" }),
+  productId: z.string().nullable().optional().openapi({ example: "5" }),
+  variantGroupId: z.string().nullable().optional().openapi({ example: "2" }),
   quantity: z.number().openapi({ example: 2 }),
-  product: bundleProductProductSchema
+  product: bundleProductProductSchema.nullable().optional(),
+  variantGroup: z.object({
+    id: z.string(),
+    name: z.string()
+  }).nullable().optional()
 }).openapi('BundleProductResponse')
 
 export const bundleDetailResponseSchema = bundleResponseSchema.extend({
@@ -32,7 +37,8 @@ export const bundleDetailResponseSchema = bundleResponseSchema.extend({
 }).openapi('BundleDetailResponse')
 
 export const bundleProductCreateSchema = z.object({
-  productId: z.string().openapi({ description: "ID Produk Satuan", example: "5" }),
+  productId: z.string().nullable().optional().openapi({ description: "ID Produk Satuan", example: "5" }),
+  variantGroupId: z.string().nullable().optional().openapi({ description: "ID Kelompok Varian", example: "2" }),
   quantity: z.number().int().min(1).openapi({ description: "Jumlah Kuantitas", example: 2 })
 }).openapi('BundleProductCreate')
 

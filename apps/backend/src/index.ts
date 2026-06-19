@@ -1,6 +1,6 @@
 // import { Hono } from "hono";
 import { serve } from "@hono/node-server";
-import type { PrismaClient } from "./generated/prisma/client.js";
+import type { PrismaClient } from "@prisma/client";
 import { createRoute, OpenAPIHono, z } from "@hono/zod-openapi";
 import withPrisma from "./lib/prisma.js";
 import { loggerMiddleware } from "./middlewares/logger.js";
@@ -14,6 +14,7 @@ import orders from "./service/orders.js";
 import customers from "./service/customers.js";
 import productOrderSummaries from "./service/product-order-summaries.js";
 import dashboard from "./service/dashboard.js";
+import variantGroups from "./service/variant-groups.js";
 import 'dotenv/config'
 import { validateSecrets } from "./lib/jwt.js";
 
@@ -65,6 +66,7 @@ app.route("/orders", orders);
 app.route("/customers", customers);
 app.route("/product-order-summaries", productOrderSummaries);
 app.route("/dashboard", dashboard);
+app.route("/variant-groups", variantGroups);
 
 const healthRoute = createRoute({
   method: 'get',

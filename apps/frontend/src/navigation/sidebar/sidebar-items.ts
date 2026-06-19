@@ -7,6 +7,7 @@ import {
   UserCog,
   Users,
   ClipboardList,
+  Layers,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -78,6 +79,12 @@ export const sidebarItems: NavGroup[] = [
     id: 3,
     label: 'Katalog',
     items: [
+      {
+        title: 'Kelompok Varian',
+        url: '/dashboard/variant-groups',
+        icon: Layers,
+        roles: ['admin', 'operator']
+      },
       {
         title: 'Produk Satuan',
         url: '/dashboard/products',
