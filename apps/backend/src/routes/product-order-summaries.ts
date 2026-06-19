@@ -122,7 +122,7 @@ export const listSummariesRoute = createRoute({
   request: {
     query: z.object({
       includeTrashed: z.enum(['true', 'false']).optional().openapi({ description: "Apakah menyertakan summary di sampah (Admin Only)", example: "true" })
-    }).optional()
+    })
   },
   responses: {
     200: {
