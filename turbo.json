@@ -8,7 +8,10 @@
     },
     "build": {
       "dependsOn": ["^build", "prisma:generate"],
-      "outputs": [".next/**", "dist/**"]
+      "outputs": [".next/**", "dist/**"],
+      "env": [
+          "POSTGRES_PASSWORD_LOCAL", "DATABASE_URL", "ADMIN_EMAIL", "ADMIN_USER_PASSWORD", "OPERATOR_EMAIL", "OPERATOR_USER_PASSWORD", "JWT_SECRET", "JWT_REFRESH_SECRET", "FRONTEND_URL"
+      ]
     },
     "dev": {
       "cache": false,
