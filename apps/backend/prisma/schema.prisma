@@ -76,15 +76,18 @@ model Customer {
 }
 
 model Product {
-  id                BigInt             @id @default(autoincrement())
-  name              String             @db.VarChar(150)
-  basePrice         Decimal            @map("base_price") @db.Decimal(12, 2)
-  isActive          Boolean            @default(true) @map("is_active")
-  createdAt         DateTime           @default(now()) @map("created_at")
-  bundleProducts    BundleProduct[]
-  productAttributes ProductAttribute[]
-  orderItems        OrderItem[]
-  summaryProducts   SummaryProduct[]
+  id                            BigInt                         @id @default(autoincrement())
+  name                          String                         @db.VarChar(150)
+  basePrice                     Decimal                        @map("base_price") @db.Decimal(12, 2)
+  isActive                      Boolean                        @default(true) @map("is_active")
+  createdAt                     DateTime                       @default(now()) @map("created_at")
+  bundleProducts                BundleProduct[]
+  productAttributes             ProductAttribute[]
+  orderItems                    OrderItem[]
+  summaryProducts               SummaryProduct[]
+  variantGroupId                BigInt?                        @map("variant_group_id")
+  variantGroup                  VariantProductGroup?           @relation(fields: [variantGroupId], references: [id], onDelete: SetNull)
+  orderBundleVariantSelections OrderBundleVariantSelection[]
 
   @@map("products")
 }
@@ -103,12 +106,14 @@ model Bundle {
 }
 
 model BundleProduct {
-  id        BigInt  @id @default(autoincrement())
-  bundleId  BigInt  @map("bundle_id")
-  productId BigInt  @map("product_id")
-  quantity  Int     @default(1)
-  bundle    Bundle  @relation(fields: [bundleId], references: [id], onDelete: Cascade)
-  product   Product @relation(fields: [productId], references: [id], onDelete: Cascade)
+  id             BigInt               @id @default(autoincrement())
+  bundleId       BigInt               @map("bundle_id")
+  productId      BigInt?              @map("product_id")
+  variantGroupId BigInt?              @map("variant_group_id")
+  quantity       Int                  @default(1)
+  bundle         Bundle               @relation(fields: [bundleId], references: [id], onDelete: Cascade)
+  product        Product?             @relation(fields: [productId], references: [id], onDelete: Cascade)
+  variantGroup   VariantProductGroup? @relation(fields: [variantGroupId], references: [id], onDelete: Cascade)
 
   @@map("bundle_products")
 }
@@ -153,16 +158,17 @@ model Order {
 }
 
 model OrderItem {
-  id               BigInt            @id @default(autoincrement())
-  orderId          BigInt            @map("order_id")
-  productId        BigInt?           @map("product_id")
-  bundleId         BigInt?           @map("bundle_id")
-  quantity         Int               @default(1)
-  priceAtPurchase  Decimal           @map("price_at_purchase") @db.Decimal(12, 2)
-  order            Order             @relation(fields: [orderId], references: [id], onDelete: Cascade)
-  product          Product?          @relation(fields: [productId], references: [id], onDelete: Restrict)
-  bundle           Bundle?           @relation(fields: [bundleId], references: [id], onDelete: Restrict)
-  orderItemDetails OrderItemDetail[]
+  id                           BigInt                         @id @default(autoincrement())
+  orderId                      BigInt                         @map("order_id")
+  productId                    BigInt?                        @map("product_id")
+  bundleId                     BigInt?                        @map("bundle_id")
+  quantity                     Int                            @default(1)
+  priceAtPurchase              Decimal                        @map("price_at_purchase") @db.Decimal(12, 2)
+  order                        Order                          @relation(fields: [orderId], references: [id], onDelete: Cascade)
+  product                      Product?                       @relation(fields: [productId], references: [id], onDelete: Restrict)
+  bundle                       Bundle?                        @relation(fields: [bundleId], references: [id], onDelete: Restrict)
+  orderItemDetails             OrderItemDetail[]
+  orderBundleVariantSelections OrderBundleVariantSelection[]
 
   @@map("order_items")
 }
@@ -202,4 +208,27 @@ model SummaryProduct {
   product           Product             @relation(fields: [productId], references: [id], onDelete: Restrict)
 
   @@map("summary_products")
+}
+
+model VariantProductGroup {
+  id                           BigInt                         @id @default(autoincrement())
+  name                         String                         @db.VarChar(150)
+  createdAt                    DateTime                       @default(now()) @map("created_at")
+  products                     Product[]
+  bundleProducts               BundleProduct[]
+  orderBundleVariantSelections OrderBundleVariantSelection[]
+
+  @@map("variant_product_groups")
+}
+
+model OrderBundleVariantSelection {
+  id                BigInt              @id @default(autoincrement())
+  orderItemId       BigInt              @map("order_item_id")
+  variantGroupId    BigInt              @map("variant_group_id")
+  selectedProductId BigInt              @map("selected_product_id")
+  orderItem         OrderItem           @relation(fields: [orderItemId], references: [id], onDelete: Cascade)
+  variantGroup      VariantProductGroup @relation(fields: [variantGroupId], references: [id], onDelete: Restrict)
+  selectedProduct   Product             @relation(fields: [selectedProductId], references: [id], onDelete: Restrict)
+
+  @@map("order_bundle_variant_selections")
 }

@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { PrismaClient } from '../generated/prisma/client.js'
+import { PrismaClient } from '@prisma/client'
 import { authMiddleware, requireRole, UserSession } from '../middlewares/auth.js'
 import {
   createSummaryRoute,
@@ -86,8 +86,21 @@ productOrderSummaries.openapi(createSummaryRoute, async (c) => {
             where: { bundleId: item.bundleId }
           })
           for (const bp of bundleProducts) {
-            const prodIdStr = bp.productId.toString()
-            productQuantities[prodIdStr] = (productQuantities[prodIdStr] || 0) + (item.quantity * bp.quantity)
+            if (bp.productId) {
+              const prodIdStr = bp.productId.toString()
+              productQuantities[prodIdStr] = (productQuantities[prodIdStr] || 0) + (item.quantity * bp.quantity)
+            } else if (bp.variantGroupId) {
+              const selections = await prisma.orderBundleVariantSelection.findMany({
+                where: {
+                  orderItemId: item.id,
+                  variantGroupId: bp.variantGroupId
+                }
+              })
+              for (const selection of selections) {
+                const prodIdStr = selection.selectedProductId.toString()
+                productQuantities[prodIdStr] = (productQuantities[prodIdStr] || 0) + item.quantity
+              }
+            }
           }
         }
       }
@@ -270,18 +283,35 @@ productOrderSummaries.openapi(exportSummaryProductRoute, async (c) => {
       return c.json({ error: 'Produk tidak ditemukan' }, 404)
     }
 
-    // Query bundles containing this product
-    const bundleProducts = await prisma.bundleProduct.findMany({
+    // Query bundles containing this product directly
+    const directBundleProducts = await prisma.bundleProduct.findMany({
       where: { productId: BigInt(productId) }
     })
-    const bundleIds = bundleProducts.map((bp) => bp.bundleId)
+    const directBundleIds = directBundleProducts.map((bp) => bp.bundleId)
+
+    // Query bundles containing the variant group of this product (if any)
+    let variantGroupBundleIds: bigint[] = []
+    if (product.variantGroupId) {
+      const groupBundleProducts = await prisma.bundleProduct.findMany({
+        where: { variantGroupId: product.variantGroupId }
+      })
+      variantGroupBundleIds = groupBundleProducts.map((bp) => bp.bundleId)
+    }
 
     // Retrieve order items
     const orderItems = await prisma.orderItem.findMany({
       where: {
         OR: [
           { productId: BigInt(productId) },
-          { bundleId: { in: bundleIds } }
+          { bundleId: { in: directBundleIds } },
+          {
+            bundleId: { in: variantGroupBundleIds },
+            orderBundleVariantSelections: {
+              some: {
+                selectedProductId: BigInt(productId)
+              }
+            }
+          }
         ],
         order: {
           orderDate: {
@@ -296,6 +326,7 @@ productOrderSummaries.openapi(exportSummaryProductRoute, async (c) => {
             customer: true
           }
         },
+        orderBundleVariantSelections: true,
         orderItemDetails: {
           where: {
             productAttribute: {
@@ -335,11 +366,19 @@ productOrderSummaries.openapi(exportSummaryProductRoute, async (c) => {
     const csvRows = [headers.map(escapeCSVValue).join(',')]
 
     for (const item of orderItems) {
-      let qty = item.quantity
-      if (item.bundleId) {
-        const bp = bundleProducts.find(b => b.bundleId === item.bundleId)
-        if (bp) {
-          qty = item.quantity * bp.quantity
+      let instancesCount = 0
+
+      if (item.productId && item.productId === BigInt(productId)) {
+        instancesCount = item.quantity
+      } else if (item.bundleId) {
+        const bpDirect = directBundleProducts.find(b => b.bundleId === item.bundleId)
+        if (bpDirect) {
+          instancesCount = item.quantity * bpDirect.quantity
+        } else if (product.variantGroupId) {
+          const selectionsCount = item.orderBundleVariantSelections.filter(
+            (s) => s.selectedProductId === BigInt(productId) && s.variantGroupId === product.variantGroupId
+          ).length
+          instancesCount = item.quantity * selectionsCount
         }
       }
 
@@ -348,19 +387,30 @@ productOrderSummaries.openapi(exportSummaryProductRoute, async (c) => {
       const customerName = item.order?.customer?.name || '-'
       const price = item.priceAtPurchase.toString()
 
-      const baseData = [invoice, dateStr, customerName, qty.toString(), price]
-
-      const customData = attributes.map((attr) => {
-        const detail = item.orderItemDetails.find(d => d.attributeId === attr.id)
-        if (!detail) return ''
-        if (attr.inputType === 'option') {
-          return detail.attributeOption?.optionValue || ''
-        }
-        return detail.customValue || ''
+      // Sort orderItemDetails by auto-increment ID ascending to map consistently to units
+      const sortedDetails = [...item.orderItemDetails].sort((a, b) => {
+        const aId = BigInt(a.id)
+        const bId = BigInt(b.id)
+        return aId < bId ? -1 : aId > bId ? 1 : 0
       })
 
-      const combined = [...baseData, ...customData]
-      csvRows.push(combined.map(escapeCSVValue).join(','))
+      // Output a row with quantity 1 for each instance of this product in this order item
+      for (let i = 0; i < instancesCount; i++) {
+        const baseData = [invoice, dateStr, customerName, '1', price]
+
+        const customData = attributes.map((attr) => {
+          const attrDetails = sortedDetails.filter(d => d.attributeId === attr.id)
+          const detail = attrDetails[i]
+          if (!detail) return ''
+          if (attr.inputType === 'option') {
+            return detail.attributeOption?.optionValue || ''
+          }
+          return detail.customValue || ''
+        })
+
+        const combined = [...baseData, ...customData]
+        csvRows.push(combined.map(escapeCSVValue).join(','))
+      }
     }
 
     const csvString = csvRows.join('\r\n')

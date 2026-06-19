@@ -14,9 +14,11 @@ import {
   DialogTitle,
   DialogFooter
 } from '@/components/ui/dialog'
+import { toast } from 'sonner'
 import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { getBundleDetailAction } from '@/server/bundle-actions'
 import { getProductsAction } from '@/server/product-actions'
+import { getVariantGroupsAction } from '@/server/variant-group-actions'
 
 interface Bundle {
   id: string
@@ -28,13 +30,18 @@ interface Bundle {
 }
 
 interface BundleProductForm {
-  productId: string
+  productId?: string | null
+  variantGroupId?: string | null
   quantity: number
   product?: {
     id: string
     name: string
     basePrice: string
     isActive: boolean
+  }
+  variantGroup?: {
+    id: string
+    name: string
   }
 }
 
@@ -53,15 +60,21 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
   const [isActive, setIsActive] = useState(true)
   const [bundleProducts, setBundleProducts] = useState<BundleProductForm[]>([])
   const [availableProducts, setAvailableProducts] = useState<any[]>([])
+  const [availableVariantGroups, setAvailableVariantGroups] = useState<any[]>([])
   const [isLoading, setIsLoading] = useState(false)
 
-  // Fetch available products list for selections
+  // Fetch available products and variant groups list for selections
   useEffect(() => {
     if (isOpen) {
       getProductsAction().then((res) => {
         if (res.success && res.products) {
           // Only show active products for inclusion in bundles
           setAvailableProducts(res.products.filter((p: any) => p.isActive))
+        }
+      })
+      getVariantGroupsAction().then((res) => {
+        if (res.success && res.variantGroups) {
+          setAvailableVariantGroups(res.variantGroups)
         }
       })
     }
@@ -80,9 +93,11 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
         getBundleDetailAction(bundle.id).then((res) => {
           if (res.success && res.bundle) {
             const fetchedProds = res.bundle.products.map((bp: any) => ({
-              productId: bp.productId,
+              productId: bp.productId || undefined,
+              variantGroupId: bp.variantGroupId || undefined,
               quantity: bp.quantity,
-              product: bp.product
+              product: bp.product,
+              variantGroup: bp.variantGroup
             }))
             setBundleProducts(fetchedProds)
           }
@@ -103,7 +118,7 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
     if (isReadOnly) return
     setBundleProducts([
       ...bundleProducts,
-      { productId: '', quantity: 1 }
+      { productId: '', variantGroupId: '', quantity: 1 }
     ])
   }
 
@@ -121,12 +136,26 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
       updated[index] = { 
         ...updated[index], 
         productId: value,
+        variantGroupId: undefined,
         product: selectedProd ? {
           id: selectedProd.id,
           name: selectedProd.name,
           basePrice: selectedProd.basePrice,
           isActive: selectedProd.isActive
-        } : undefined
+        } : undefined,
+        variantGroup: undefined
+      }
+    } else if (field === 'variantGroupId') {
+      const selectedVg = availableVariantGroups.find(vg => vg.id === value)
+      updated[index] = {
+        ...updated[index],
+        variantGroupId: value,
+        productId: undefined,
+        variantGroup: selectedVg ? {
+          id: selectedVg.id,
+          name: selectedVg.name
+        } : undefined,
+        product: undefined
       }
     } else {
       updated[index] = { ...updated[index], [field]: value }
@@ -139,14 +168,18 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
     e.preventDefault()
     if (isReadOnly || !name || !bundlePrice || bundleProducts.length === 0) return
 
-    // Ensure all rows have valid product selections
-    const isInvalid = bundleProducts.some(bp => !bp.productId || bp.quantity < 1)
-    if (isInvalid) return
+    // Ensure all rows have valid product OR variant group selections
+    const isInvalid = bundleProducts.some(bp => (!bp.productId && !bp.variantGroupId) || bp.quantity < 1)
+    if (isInvalid) {
+      toast.error('Harap lengkapi semua baris item penyusun bundle')
+      return
+    }
 
     setIsLoading(true)
     
     const formattedProducts = bundleProducts.map((bp) => ({
-      productId: bp.productId,
+      productId: bp.productId || null,
+      variantGroupId: bp.variantGroupId || null,
       quantity: bp.quantity
     }))
 
@@ -179,7 +212,7 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
 
   return (
     <Dialog open={isOpen} onOpenChange={onClose}>
-      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto">
+      <DialogContent className="max-w-2xl max-h-[85vh] overflow-y-auto" style={{maxWidth: "max-content"}}>
         <form onSubmit={handleFormSubmit}>
           <DialogHeader>
             <DialogTitle>
@@ -241,7 +274,7 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
               <div className="border-t pt-4">
                 <div className="flex items-center justify-between mb-4">
                   <div>
-                    <h3 className="font-medium text-sm">Produk Satuan Penyusun</h3>
+                    <h3 className="font-medium text-sm">Item Penyusun Bundle</h3>
                     {bundleProducts.length > 0 && (
                       <p className="text-xs text-muted-foreground mt-0.5">
                         Total harga asli satuan: <span className="font-semibold text-foreground">{formatRupiah(calculatedIndividualSum)}</span>
@@ -256,21 +289,21 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
                       onClick={handleAddProductRow}
                       className="flex items-center gap-1"
                     >
-                      <Plus className="h-4 w-4" /> Tambah Produk
+                      <Plus className="h-4 w-4" /> Tambah Item
                     </Button>
                   )}
                 </div>
 
                 {bundleProducts.length === 0 ? (
                   <p className="text-xs text-muted-foreground italic text-center py-4">
-                    Belum ada produk satuan penyusun terpilih.
+                    Belum ada item penyusun terpilih.
                   </p>
                 ) : isReadOnly ? (
                   <div className="rounded-lg border overflow-hidden">
                     <table className="w-full text-sm">
                       <thead className="bg-muted text-muted-foreground text-xs font-medium">
                         <tr>
-                          <th className="p-2 text-left">Nama Produk</th>
+                          <th className="p-2 text-left">Nama Item</th>
                           <th className="p-2 text-right">Harga Satuan</th>
                           <th className="p-2 text-center w-24">Kuantitas</th>
                           <th className="p-2 text-right">Subtotal</th>
@@ -278,14 +311,19 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
                       </thead>
                       <tbody>
                         {bundleProducts.map((bp: any, idx: number) => {
+                          const isProduct = !!bp.productId
                           const basePriceVal = bp.product ? parseFloat(bp.product.basePrice) : 0
                           const subtotal = basePriceVal * bp.quantity
+                          const displayName = isProduct
+                            ? (bp.product?.name || 'Produk Tidak Ditemukan')
+                            : `[Varian] ${bp.variantGroup?.name || 'Kelompok Varian Tidak Ditemukan'}`
+
                           return (
                             <tr key={idx} className="border-t hover:bg-muted/30">
-                              <td className="p-2 font-medium">{bp.product?.name || 'Produk Tidak Ditemukan'}</td>
-                              <td className="p-2 text-right">{formatRupiah(basePriceVal)}</td>
+                              <td className="p-2 font-medium">{displayName}</td>
+                              <td className="p-2 text-right">{isProduct ? formatRupiah(basePriceVal) : '-'}</td>
                               <td className="p-2 text-center">{bp.quantity}</td>
-                              <td className="p-2 text-right font-medium">{formatRupiah(subtotal)}</td>
+                              <td className="p-2 text-right font-medium">{isProduct ? formatRupiah(subtotal) : '-'}</td>
                             </tr>
                           )
                         })}
@@ -294,47 +332,88 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
                   </div>
                 ) : (
                   <div className="space-y-4">
-                    {bundleProducts.map((bp, idx) => (
-                      <div key={idx} className="flex gap-2 p-3 border rounded-lg bg-accent/20 relative items-end">
-                        <div className="flex-1">
-                          <Label className="text-xs">Produk Satuan</Label>
-                          <NativeSelect
-                            value={bp.productId}
-                            onChange={(e) => handleProductRowChange(idx, 'productId', e.target.value)}
-                            required
+                    {bundleProducts.map((bp, idx) => {
+                      const isVariant = bp.variantGroupId !== undefined
+                      const itemType = isVariant ? 'variant' : 'product'
+
+                      const handleTypeToggle = (type: string) => {
+                        // console.log("im here!")
+                        if (type === 'variant') {
+                          handleProductRowChange(idx, 'variantGroupId', '')
+                          // console.log("im here too!")
+                        } else {
+                          handleProductRowChange(idx, 'productId', '')
+                        }
+                      }
+
+                      return (
+                        <div key={idx} className="flex flex-col sm:flex-row gap-2 p-3 border rounded-lg bg-accent/20 relative items-end">
+                          <div className="w-full sm:w-40">
+                            <Label className="text-xs">Tipe Penyusun</Label>
+                            <NativeSelect
+                              value={itemType}
+                              onChange={(e) => handleTypeToggle(e.target.value)}
+                            >
+                              <NativeSelectOption value="product">Produk Satuan</NativeSelectOption>
+                              <NativeSelectOption value="variant">Kelompok Varian</NativeSelectOption>
+                            </NativeSelect>
+                          </div>
+
+                          <div className="flex-1 w-full">
+                            <Label className="text-xs">{isVariant ? 'Kelompok Varian' : 'Produk Satuan'}</Label>
+                            {isVariant ? (
+                              <NativeSelect
+                                value={bp.variantGroupId || ''}
+                                onChange={(e) => handleProductRowChange(idx, 'variantGroupId', e.target.value)}
+                                required
+                              >
+                                <NativeSelectOption value="">-- Pilih Kelompok Varian --</NativeSelectOption>
+                                {availableVariantGroups.map((vg) => (
+                                  <NativeSelectOption key={vg.id} value={vg.id}>
+                                    {vg.name}
+                                  </NativeSelectOption>
+                                ))}
+                              </NativeSelect>
+                            ) : (
+                              <NativeSelect
+                                value={bp.productId || ''}
+                                onChange={(e) => handleProductRowChange(idx, 'productId', e.target.value)}
+                                required
+                              >
+                                <NativeSelectOption value="">-- Pilih Produk --</NativeSelectOption>
+                                {availableProducts.map((p) => (
+                                  <NativeSelectOption key={p.id} value={p.id}>
+                                    {p.name} ({formatRupiah(p.basePrice)})
+                                  </NativeSelectOption>
+                                ))}
+                              </NativeSelect>
+                            )}
+                          </div>
+
+                          <div className="w-full sm:w-20">
+                            <Label className="text-xs">Kuantitas</Label>
+                            <Input
+                              type="number"
+                              min="1"
+                              value={bp.quantity}
+                              onChange={(e) => handleProductRowChange(idx, 'quantity', parseInt(e.target.value) || 1)}
+                              required
+                            />
+                          </div>
+
+                          <Button
+                            type="button"
+                            variant="ghost"
+                            size="icon"
+                            onClick={() => handleRemoveProductRow(idx)}
+                            className="h-9 w-9 text-destructive border"
+                            title="Hapus baris"
                           >
-                            <NativeSelectOption value="">-- Pilih Produk --</NativeSelectOption>
-                            {availableProducts.map((p) => (
-                              <NativeSelectOption key={p.id} value={p.id}>
-                                {p.name} ({formatRupiah(p.basePrice)})
-                              </NativeSelectOption>
-                            ))}
-                          </NativeSelect>
+                            <Trash2 className="h-4 w-4" />
+                          </Button>
                         </div>
-
-                        <div className="w-24">
-                          <Label className="text-xs">Kuantitas</Label>
-                          <Input
-                            type="number"
-                            min="1"
-                            value={bp.quantity}
-                            onChange={(e) => handleProductRowChange(idx, 'quantity', parseInt(e.target.value) || 1)}
-                            required
-                          />
-                        </div>
-
-                        <Button
-                          type="button"
-                          variant="ghost"
-                          size="icon"
-                          onClick={() => handleRemoveProductRow(idx)}
-                          className="h-9 w-9 text-destructive border"
-                          title="Hapus baris"
-                        >
-                          <Trash2 className="h-4 w-4" />
-                        </Button>
-                      </div>
-                    ))}
+                      )
+                    })}
                   </div>
                 )}
               </div>
@@ -358,7 +437,7 @@ export function BundleDialog({ isOpen, onClose, bundle, onSubmit, isReadOnly = f
                     name === '' || 
                     bundlePrice === '' || 
                     bundleProducts.length === 0 || 
-                    bundleProducts.some(bp => !bp.productId)
+                    bundleProducts.some(bp => !bp.productId && !bp.variantGroupId)
                   }
                 >
                   {bundle ? 'Simpan Perubahan' : 'Buat Paket'}

@@ -34,6 +34,9 @@ interface FormItem {
         customValue?: string
       }
     }
+    isVariantGroup?: boolean
+    variantGroupId?: string
+    selectedProductId?: string
   }[]
 }
 
@@ -162,16 +165,31 @@ export default function NewOrderPage() {
       if (res.success && res.bundle && res.bundle.products) {
         // A bundle contains multiple constituent products, each with a quantity
         for (const bp of res.bundle.products) {
-          const product = await fetchProductDetailsWithCache(bp.productId)
-          if (product && product.attributes) {
-            // constituent quantity in bundle * quantity of bundle
-            const totalUnitsOfProduct = bp.quantity * quantity
-            for (let u = 0; u < totalUnitsOfProduct; u++) {
+          if (bp.productId) {
+            const product = await fetchProductDetailsWithCache(bp.productId)
+            if (product && product.attributes) {
+              // constituent quantity in bundle * quantity of bundle
+              const totalUnitsOfProduct = bp.quantity * quantity
+              for (let u = 0; u < totalUnitsOfProduct; u++) {
+                customizations.push({
+                  productId: product.id,
+                  productName: `${product.name} (Unit #${u + 1} di Paket)`,
+                  attributes: product.attributes,
+                  values: {}
+                })
+              }
+            }
+          } else if (bp.variantGroupId) {
+            const totalUnitsOfVariant = bp.quantity * quantity
+            for (let u = 0; u < totalUnitsOfVariant; u++) {
               customizations.push({
-                productId: product.id,
-                productName: `${product.name} (Unit #${u + 1} di Paket)`,
-                attributes: product.attributes,
-                values: {}
+                productId: '',
+                variantGroupId: bp.variantGroupId,
+                isVariantGroup: true,
+                productName: `${bp.variantGroup?.name || 'Kelompok Varian'} (Unit #${u + 1} di Paket)`,
+                attributes: [],
+                values: {},
+                selectedProductId: ''
               })
             }
           }
@@ -212,6 +230,31 @@ export default function NewOrderPage() {
       }
     }
 
+    setFormItems(updated)
+  }
+
+  const handleVariantProductChange = async (
+    rowIdx: number,
+    unitIdx: number,
+    selectedProdId: string
+  ) => {
+    const updated = [...formItems]
+    const item = updated[rowIdx]
+    const cust = item.customizations[unitIdx]
+    
+    cust.selectedProductId = selectedProdId
+    cust.productId = selectedProdId
+    cust.values = {} // reset values
+    
+    if (selectedProdId) {
+      const product = await fetchProductDetailsWithCache(selectedProdId)
+      if (product) {
+        cust.attributes = product.attributes || []
+      }
+    } else {
+      cust.attributes = []
+    }
+    
     setFormItems(updated)
   }
 
@@ -256,6 +299,12 @@ export default function NewOrderPage() {
       const row = formItems[r]
       for (let u = 0; u < row.customizations.length; u++) {
         const cust = row.customizations[u]
+        
+        if (cust.isVariantGroup && !cust.selectedProductId) {
+          toast.error(`Pilihan varian produk wajib diisi untuk '${cust.productName}' pada baris #${r + 1}`)
+          return
+        }
+
         for (const attr of cust.attributes) {
           if (attr.isRequired) {
             const val = cust.values[attr.id]
@@ -306,36 +355,48 @@ export default function NewOrderPage() {
           for (let m = 0; m < item.quantity; m++) {
             // For this bundle instance, gather customizations of its products
             const bundleDetailsPayload: any[] = []
+            const variantSelectionsPayload: any[] = []
 
-            // We loop over all customizations belonging to this bundle row
-            // and filter only those that correspond to this bundle unit instance 'm'.
-            // Product X (Qty Qx) and Product Y (Qty Qy).
-            // For bundle instance 'm' (from 0 to M-1):
-            // Product X unit indices: m * Qx to (m + 1) * Qx - 1
-            // Product Y unit indices: m * Qy to (m + 1) * Qy - 1
-            // Let's trace unit index offsets dynamically
-            let currentOffset = 0
             for (const bp of res.bundle.products) {
               const qtyInBundle = bp.quantity
               const startIdx = m * qtyInBundle
               const endIdx = startIdx + qtyInBundle
 
-              for (let uIdx = startIdx; uIdx < endIdx; uIdx++) {
-                // Find customization record corresponding to product 'bp.productId' at index 'uIdx'
-                // Since our rebuildCustomizations list adds customizations product-by-product:
-                // product 1 (M * Q1 units), product 2 (M * Q2 units), etc.
-                // Product 1 customizations are at index bpOffset + uIdx
-                const bpOffset = item.customizations.findIndex(c => c.productId === bp.productId)
-                if (bpOffset !== -1) {
-                  const targetCust = item.customizations[bpOffset + uIdx]
-                  if (targetCust) {
-                    Object.entries(targetCust.values || {}).forEach(([attrId, val]) => {
-                      bundleDetailsPayload.push({
-                        attributeId: attrId,
-                        selectedOptionId: val.selectedOptionId || undefined,
-                        customValue: val.customValue || undefined
+              if (bp.productId) {
+                for (let uIdx = startIdx; uIdx < endIdx; uIdx++) {
+                  const bpOffset = item.customizations.findIndex(c => c.productId === bp.productId && !c.isVariantGroup)
+                  if (bpOffset !== -1) {
+                    const targetCust = item.customizations[bpOffset + uIdx]
+                    if (targetCust) {
+                      Object.entries(targetCust.values || {}).forEach(([attrId, val]) => {
+                        bundleDetailsPayload.push({
+                          attributeId: attrId,
+                          selectedOptionId: val.selectedOptionId || undefined,
+                          customValue: val.customValue || undefined
+                        })
                       })
-                    })
+                    }
+                  }
+                }
+              } else if (bp.variantGroupId) {
+                for (let uIdx = startIdx; uIdx < endIdx; uIdx++) {
+                  const bpOffset = item.customizations.findIndex(c => c.variantGroupId === bp.variantGroupId && c.isVariantGroup)
+                  if (bpOffset !== -1) {
+                    const targetCust = item.customizations[bpOffset + uIdx]
+                    if (targetCust && targetCust.selectedProductId) {
+                      variantSelectionsPayload.push({
+                        variantGroupId: bp.variantGroupId,
+                        selectedProductId: targetCust.selectedProductId
+                      })
+
+                      Object.entries(targetCust.values || {}).forEach(([attrId, val]) => {
+                        bundleDetailsPayload.push({
+                          attributeId: attrId,
+                          selectedOptionId: val.selectedOptionId || undefined,
+                          customValue: val.customValue || undefined
+                        })
+                      })
+                    }
                   }
                 }
               }
@@ -345,7 +406,8 @@ export default function NewOrderPage() {
               productId: null,
               bundleId: item.itemId,
               quantity: 1, // expanded
-              details: bundleDetailsPayload
+              details: bundleDetailsPayload,
+              variantSelections: variantSelectionsPayload
             })
           }
         }
@@ -550,6 +612,7 @@ export default function NewOrderPage() {
                   onRemove={handleRemoveItemRow}
                   onChange={handleRowChange}
                   onCustomizationChange={handleCustomizationChange}
+                  onVariantProductChange={handleVariantProductChange}
                 />
               ))}
             </div>

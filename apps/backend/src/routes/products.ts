@@ -9,6 +9,7 @@ export const productResponseSchema = z.object({
   name: z.string().openapi({ description: "Nama Produk", example: "Apparel T-Shirt" }),
   basePrice: z.string().openapi({ description: "Harga Dasar Produk", example: "85000.00" }),
   isActive: z.boolean().openapi({ description: "Status Aktif Produk", example: true }),
+  variantGroupId: z.string().nullable().optional().openapi({ description: "ID Variant Group jika merupakan varian konkret", example: "1" }),
   createdAt: z.string().openapi({ description: "Tanggal Dibuat", example: "2026-06-16T10:34:04Z" })
 }).openapi('ProductResponse')
 
@@ -40,6 +41,7 @@ export const createProductRequestSchema = z.object({
   name: z.string().max(150).openapi({ description: "Nama produk satuan", example: "Apparel T-Shirt" }),
   basePrice: z.union([z.number(), z.string().regex(/^\d+(\.\d+)?$/)]).openapi({ description: "Harga dasar produk", example: "85000.00" }),
   isActive: z.boolean().default(true).openapi({ description: "Status aktif produk", example: true }),
+  variantGroupId: z.string().nullable().optional().openapi({ description: "ID Variant Group jika produk ini varian konkret", example: "1" }),
   attributes: z.array(attributeCreateSchema).optional().openapi({ description: "Form kustomisasi atribut" })
 }).openapi('CreateProductRequest')
 

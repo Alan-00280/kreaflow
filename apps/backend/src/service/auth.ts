@@ -1,6 +1,6 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
 import { loginRoute, logoutRoute } from '../routes/auth.js'
-import { PrismaClient } from '../generated/prisma/client.js'
+import { PrismaClient } from '@prisma/client'
 import bcrypt from 'bcrypt'
 import { setCookie, deleteCookie } from 'hono/cookie'
 import { sign } from 'hono/jwt'

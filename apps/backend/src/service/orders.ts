@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { PrismaClient } from '../generated/prisma/client.js'
+import { PrismaClient } from '@prisma/client'
 import { authMiddleware, UserSession } from '../middlewares/auth.js'
 import {
   createOrderRoute,
@@ -66,6 +66,13 @@ function serializeOrder(order: any) {
         attributeName: det.productAttribute?.attributeName || '',
         inputType: det.productAttribute?.inputType || '',
         selectedOptionValue: det.attributeOption?.optionValue || null
+      })) : [],
+      variantSelections: item.orderBundleVariantSelections ? item.orderBundleVariantSelections.map((v: any) => ({
+        id: v.id.toString(),
+        variantGroupId: v.variantGroupId.toString(),
+        selectedProductId: v.selectedProductId.toString(),
+        variantGroupName: v.variantGroup?.name || '',
+        selectedProductName: v.selectedProduct?.name || ''
       })) : []
     })) : []
   }
@@ -98,6 +105,7 @@ orders.openapi(createOrderRoute, async (c) => {
       quantity: number
       priceAtPurchase: number
       details: Array<{ attributeId: string; selectedOptionId?: string | null; customValue?: string | null }>
+      variantSelections?: Array<{ variantGroupId: bigint; selectedProductId: bigint }>
     }> = []
 
     for (const item of body.items) {
@@ -146,7 +154,12 @@ orders.openapi(createOrderRoute, async (c) => {
         const bundle = await prisma.bundle.findUnique({
           where: { id: BigInt(item.bundleId), isActive: true },
           include: {
-            bundleProducts: true
+            bundleProducts: {
+              include: {
+                product: true,
+                variantGroup: true
+              }
+            }
           }
         })
         if (!bundle) {
@@ -156,13 +169,31 @@ orders.openapi(createOrderRoute, async (c) => {
 
         // Validate bundle product attribute details if provided
         if (item.details) {
-          const bundleProductIds = bundle.bundleProducts.map(bp => bp.productId)
+          // Identify valid product IDs for this bundle
+          // A product ID is valid if it's a direct product inside the bundle,
+          // OR if it's a product that belongs to one of the variantGroups inside the bundle.
+          const directProductIds = bundle.bundleProducts.filter(bp => bp.productId !== null).map(bp => bp.productId!)
+          const variantGroupIds = bundle.bundleProducts.filter(bp => bp.variantGroupId !== null).map(bp => bp.variantGroupId!)
+
           for (const det of item.details) {
             const attr = await prisma.productAttribute.findUnique({
               where: { id: BigInt(det.attributeId) }
             })
-            // Attribute must belong to one of the products in the bundle
-            if (!attr || !bundleProductIds.includes(attr.productId)) {
+            if (!attr) {
+              return c.json({ error: `Atribut kustomisasi (ID: ${det.attributeId}) tidak valid` }, 400)
+            }
+
+            let isAttrValid = directProductIds.includes(attr.productId)
+            if (!isAttrValid && variantGroupIds.length > 0) {
+              const attrProduct = await prisma.product.findUnique({
+                where: { id: attr.productId }
+              })
+              if (attrProduct && attrProduct.variantGroupId && variantGroupIds.includes(attrProduct.variantGroupId)) {
+                isAttrValid = true
+              }
+            }
+
+            if (!isAttrValid) {
               return c.json({ error: `Atribut kustomisasi (ID: ${det.attributeId}) tidak valid untuk produk penyusun paket ${bundle.name}` }, 400)
             }
             if (det.selectedOptionId) {
@@ -176,12 +207,50 @@ orders.openapi(createOrderRoute, async (c) => {
           }
         }
 
+        // Validate variant selections if the bundle requires any
+        const variantBundleProducts = bundle.bundleProducts.filter((bp) => bp.variantGroupId !== null)
+
+        const selectionsToCreate: Array<{ variantGroupId: bigint; selectedProductId: bigint }> = []
+
+        if (variantBundleProducts.length > 0) {
+          const clientSelections = [...(item.variantSelections || [])]
+          
+          for (const bp of variantBundleProducts) {
+            const vgId = bp.variantGroupId!
+            const qtyNeeded = bp.quantity
+            
+            for (let k = 0; k < qtyNeeded; k++) {
+              // Find selection from client payload and consume it
+              const selectionIndex = clientSelections.findIndex((s: any) => BigInt(s.variantGroupId) === vgId)
+              if (selectionIndex === -1) {
+                return c.json({ error: `Pilihan varian wajib diisi sebanyak ${qtyNeeded} kali untuk kelompok varian dengan ID ${vgId} di bundle ${bundle.name}` }, 400)
+              }
+              const selection = clientSelections[selectionIndex]
+              clientSelections.splice(selectionIndex, 1) // consume this selection
+
+              const selectedProdId = BigInt(selection.selectedProductId)
+              // Verify selected product is active and belongs to this variant group
+              const selectedProduct = await prisma.product.findUnique({
+                where: { id: selectedProdId, isActive: true }
+              })
+              if (!selectedProduct || selectedProduct.variantGroupId !== vgId) {
+                return c.json({ error: `Produk pilihan (ID: ${selection.selectedProductId}) tidak valid atau bukan merupakan bagian dari kelompok varian (ID: ${vgId})` }, 400)
+              }
+              selectionsToCreate.push({
+                variantGroupId: vgId,
+                selectedProductId: selectedProdId
+              })
+            }
+          }
+        }
+
         orderItemsToCreate.push({
           productId: null,
           bundleId: BigInt(item.bundleId),
           quantity: item.quantity,
           priceAtPurchase: price,
-          details: item.details || []
+          details: item.details || [],
+          variantSelections: selectionsToCreate
         })
 
       } else {
@@ -246,6 +315,16 @@ orders.openapi(createOrderRoute, async (c) => {
             }))
           })
         }
+
+        if (item.variantSelections && item.variantSelections.length > 0) {
+          await tx.orderBundleVariantSelection.createMany({
+            data: item.variantSelections.map((v: any) => ({
+              orderItemId: orderItem.id,
+              variantGroupId: v.variantGroupId,
+              selectedProductId: v.selectedProductId
+            }))
+          })
+        }
       }
 
       return tx.order.findUnique({
@@ -264,6 +343,12 @@ orders.openapi(createOrderRoute, async (c) => {
             include: {
               product: true,
               bundle: true,
+              orderBundleVariantSelections: {
+                include: {
+                  variantGroup: true,
+                  selectedProduct: true
+                }
+              },
               orderItemDetails: {
                 include: {
                   productAttribute: {
@@ -312,6 +397,12 @@ orders.openapi(listOrdersRoute, async (c) => {
           include: {
             product: true,
             bundle: true,
+            orderBundleVariantSelections: {
+              include: {
+                variantGroup: true,
+                selectedProduct: true
+              }
+            },
             orderItemDetails: {
               include: {
                 productAttribute: {
@@ -363,6 +454,12 @@ orders.openapi(getOrderDetailRoute, async (c) => {
           include: {
             product: true,
             bundle: true,
+            orderBundleVariantSelections: {
+              include: {
+                variantGroup: true,
+                selectedProduct: true
+              }
+            },
             orderItemDetails: {
               include: {
                 productAttribute: {

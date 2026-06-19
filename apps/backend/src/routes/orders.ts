@@ -40,7 +40,14 @@ export const orderItemResponseSchema = z.object({
     name: z.string(),
     bundlePrice: z.string()
   }).nullable().optional(),
-  details: z.array(orderItemDetailResponseSchema)
+  details: z.array(orderItemDetailResponseSchema),
+  variantSelections: z.array(z.object({
+    id: z.string(),
+    variantGroupId: z.string(),
+    selectedProductId: z.string(),
+    variantGroupName: z.string(),
+    selectedProductName: z.string()
+  })).optional()
 }).openapi('OrderItemResponse')
 
 export const orderDetailResponseSchema = orderResponseSchema.extend({
@@ -69,7 +76,11 @@ export const orderItemCreateSchema = z.object({
   productId: z.string().optional().nullable().openapi({ description: "ID Produk Satuan", example: "3" }),
   bundleId: z.string().optional().nullable().openapi({ description: "ID Paket Bundling", example: "2" }),
   quantity: z.number().int().min(1).openapi({ description: "Kuantitas pembelian", example: 1 }),
-  details: z.array(orderItemDetailCreateSchema).optional().openapi({ description: "Form kustomisasi atribut" })
+  details: z.array(orderItemDetailCreateSchema).optional().openapi({ description: "Form kustomisasi atribut" }),
+  variantSelections: z.array(z.object({
+    variantGroupId: z.string().openapi({ description: "ID Kelompok Varian", example: "1" }),
+    selectedProductId: z.string().openapi({ description: "ID Produk Satuan (Varian konkret) yang dipilih", example: "5" })
+  })).optional().openapi({ description: "Daftar pemilihan varian konkret untuk item bundle" })
 }).openapi('OrderItemCreate')
 
 export const createOrderRequestSchema = z.object({

@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { PrismaClient } from '../generated/prisma/client.js'
+import { PrismaClient } from '@prisma/client'
 import { authMiddleware, requireRole, UserSession } from '../middlewares/auth.js'
 import {
   listBundlesRoute,
@@ -32,14 +32,19 @@ function serializeBundle(bundle: any) {
     createdAt: bundle.createdAt.toISOString(),
     products: bundle.bundleProducts ? bundle.bundleProducts.map((bp: any) => ({
       id: bp.id.toString(),
-      productId: bp.productId.toString(),
+      productId: bp.productId ? bp.productId.toString() : null,
+      variantGroupId: bp.variantGroupId ? bp.variantGroupId.toString() : null,
       quantity: bp.quantity,
-      product: {
+      product: bp.product ? {
         id: bp.product.id.toString(),
         name: bp.product.name,
         basePrice: bp.product.basePrice.toString(),
         isActive: bp.product.isActive
-      }
+      } : null,
+      variantGroup: bp.variantGroup ? {
+        id: bp.variantGroup.id.toString(),
+        name: bp.variantGroup.name
+      } : null
     })) : []
   }
 }
@@ -90,7 +95,8 @@ bundles.openapi(getBundleDetailRoute, async (c) => {
       include: {
         bundleProducts: {
           include: {
-            product: true
+            product: true,
+            variantGroup: true
           }
         }
       }
@@ -125,13 +131,23 @@ bundles.openapi(createBundleRoute, async (c) => {
     const prisma = c.get('prisma')
     const body = c.req.valid('json')
 
-    // Validate that all associated products exist
-    const productIds = body.products.map((p) => BigInt(p.productId))
-    const existingProducts = await prisma.product.findMany({
-      where: { id: { in: productIds } }
-    })
-    if (existingProducts.length !== productIds.length) {
-      return c.json({ error: 'Satu atau lebih produk satuan tidak ditemukan dalam sistem' }, 400)
+    // Validate that all associated products/variantGroups exist, and check mutual exclusivity
+    for (const p of body.products) {
+      if ((p.productId && p.variantGroupId) || (!p.productId && !p.variantGroupId)) {
+        return c.json({ error: 'Setiap produk penyusun bundle harus memiliki tepat satu productId atau variantGroupId' }, 400)
+      }
+      if (p.productId) {
+        const prod = await prisma.product.findUnique({ where: { id: BigInt(p.productId) } })
+        if (!prod) {
+          return c.json({ error: `Produk dengan ID ${p.productId} tidak ditemukan dalam sistem` }, 400)
+        }
+      }
+      if (p.variantGroupId) {
+        const vg = await prisma.variantProductGroup.findUnique({ where: { id: BigInt(p.variantGroupId) } })
+        if (!vg) {
+          return c.json({ error: `Kelompok varian dengan ID ${p.variantGroupId} tidak ditemukan dalam sistem` }, 400)
+        }
+      }
     }
 
     // Create bundle and its relations
@@ -143,7 +159,8 @@ bundles.openapi(createBundleRoute, async (c) => {
         isActive: body.isActive ?? true,
         bundleProducts: {
           create: body.products.map((p) => ({
-            productId: BigInt(p.productId),
+            productId: p.productId ? BigInt(p.productId) : null,
+            variantGroupId: p.variantGroupId ? BigInt(p.variantGroupId) : null,
             quantity: p.quantity
           }))
         }
@@ -151,7 +168,8 @@ bundles.openapi(createBundleRoute, async (c) => {
       include: {
         bundleProducts: {
           include: {
-            product: true
+            product: true,
+            variantGroup: true
           }
         }
       }
@@ -186,14 +204,24 @@ bundles.openapi(updateBundleRoute, async (c) => {
       return c.json({ error: 'Paket bundling tidak ditemukan' }, 404)
     }
 
-    // Validate products if provided in the body
+    // Validate products/variantGroups if provided in the body
     if (body.products) {
-      const productIds = body.products.map((p) => BigInt(p.productId))
-      const existingProducts = await prisma.product.findMany({
-        where: { id: { in: productIds } }
-      })
-      if (existingProducts.length !== productIds.length) {
-        return c.json({ error: 'Satu atau lebih produk satuan tidak ditemukan dalam sistem' }, 400)
+      for (const p of body.products) {
+        if ((p.productId && p.variantGroupId) || (!p.productId && !p.variantGroupId)) {
+          return c.json({ error: 'Setiap produk penyusun bundle harus memiliki tepat satu productId atau variantGroupId' }, 400)
+        }
+        if (p.productId) {
+          const prod = await prisma.product.findUnique({ where: { id: BigInt(p.productId) } })
+          if (!prod) {
+            return c.json({ error: `Produk dengan ID ${p.productId} tidak ditemukan dalam sistem` }, 400)
+          }
+        }
+        if (p.variantGroupId) {
+          const vg = await prisma.variantProductGroup.findUnique({ where: { id: BigInt(p.variantGroupId) } })
+          if (!vg) {
+            return c.json({ error: `Kelompok varian dengan ID ${p.variantGroupId} tidak ditemukan dalam sistem` }, 400)
+          }
+        }
       }
     }
 
@@ -221,7 +249,8 @@ bundles.openapi(updateBundleRoute, async (c) => {
             await tx.bundleProduct.create({
               data: {
                 bundleId: BigInt(id),
-                productId: BigInt(p.productId),
+                productId: p.productId ? BigInt(p.productId) : null,
+                variantGroupId: p.variantGroupId ? BigInt(p.variantGroupId) : null,
                 quantity: p.quantity
               }
             })
@@ -234,7 +263,8 @@ bundles.openapi(updateBundleRoute, async (c) => {
         include: {
           bundleProducts: {
             include: {
-              product: true
+              product: true,
+              variantGroup: true
             }
           }
         }

@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { PrismaClient } from '../generated/prisma/client.js'
+import { PrismaClient } from '@prisma/client'
 import { authMiddleware, requireRole } from '../middlewares/auth.js'
 import {
   listProductsRoute,
@@ -27,6 +27,7 @@ function serializeProduct(product: any) {
     name: product.name,
     basePrice: product.basePrice.toString(),
     isActive: product.isActive,
+    variantGroupId: product.variantGroupId ? product.variantGroupId.toString() : null,
     createdAt: product.createdAt.toISOString(),
     attributes: product.productAttributes ? product.productAttributes.map((attr: any) => ({
       id: attr.id.toString(),
@@ -55,6 +56,7 @@ products.openapi(listProductsRoute, async (c) => {
         name: p.name,
         basePrice: p.basePrice.toString(),
         isActive: p.isActive,
+        variantGroupId: p.variantGroupId ? p.variantGroupId.toString() : null,
         createdAt: p.createdAt.toISOString()
       })),
       200
@@ -105,11 +107,22 @@ products.openapi(createProductRoute, async (c) => {
     const prisma = c.get('prisma')
     const body = c.req.valid('json')
 
+    // Validate variantGroupId if passed
+    if (body.variantGroupId) {
+      const vg = await prisma.variantProductGroup.findUnique({
+        where: { id: BigInt(body.variantGroupId) }
+      })
+      if (!vg) {
+        return c.json({ error: 'Kelompok varian tidak ditemukan' }, 400)
+      }
+    }
+
     const product = await prisma.product.create({
       data: {
         name: body.name,
         basePrice: body.basePrice,
         isActive: body.isActive ?? true,
+        variantGroupId: body.variantGroupId ? BigInt(body.variantGroupId) : null,
         productAttributes: body.attributes ? {
           create: body.attributes.map((attr) => ({
             attributeName: attr.attributeName,
@@ -159,6 +172,16 @@ products.openapi(updateProductRoute, async (c) => {
       return c.json({ error: 'Produk tidak ditemukan' }, 404)
     }
 
+    // Validate variantGroupId if passed
+    if (body.variantGroupId !== undefined && body.variantGroupId !== null) {
+      const vg = await prisma.variantProductGroup.findUnique({
+        where: { id: BigInt(body.variantGroupId) }
+      })
+      if (!vg) {
+        return c.json({ error: 'Kelompok varian tidak ditemukan' }, 400)
+      }
+    }
+
     // Execute in transaction to maintain integrity of attributes replacement
     const product = await prisma.$transaction(async (tx) => {
       // Update basic fields
@@ -167,7 +190,10 @@ products.openapi(updateProductRoute, async (c) => {
         data: {
           name: body.name ?? undefined,
           basePrice: body.basePrice ?? undefined,
-          isActive: body.isActive ?? undefined
+          isActive: body.isActive ?? undefined,
+          variantGroupId: body.variantGroupId !== undefined
+            ? (body.variantGroupId ? BigInt(body.variantGroupId) : null)
+            : undefined
         }
       })
 

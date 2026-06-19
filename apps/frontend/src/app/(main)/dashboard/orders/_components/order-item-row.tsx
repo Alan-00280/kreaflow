@@ -22,6 +22,9 @@ interface FormItem {
         customValue?: string
       }
     }
+    isVariantGroup?: boolean
+    variantGroupId?: string
+    selectedProductId?: string
   }[]
 }
 
@@ -39,6 +42,11 @@ interface OrderItemRowProps {
     field: 'selectedOptionId' | 'customValue',
     value: string
   ) => void
+  onVariantProductChange: (
+    rowIdx: number,
+    unitIdx: number,
+    selectedProdId: string
+  ) => void
 }
 
 export function OrderItemRow({
@@ -48,7 +56,8 @@ export function OrderItemRow({
   availableBundles,
   onRemove,
   onChange,
-  onCustomizationChange
+  onCustomizationChange,
+  onVariantProductChange
 }: OrderItemRowProps) {
   const formatRupiah = (value: string | number) => {
     const numeric = typeof value === 'string' ? parseFloat(value) : value
@@ -133,54 +142,81 @@ export function OrderItemRow({
           </h4>
           {/* Scrollable list container: caps visibility to max 3 items (approx 480px) and scrolls the rest */}
           <div className="space-y-4 max-h-[480px] overflow-y-auto pr-2">
-            {item.customizations.map((cust, uIdx) => (
-              <div key={uIdx} className="bg-background p-3 border rounded-lg space-y-3 shadow-xs">
-                <span className="font-semibold text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full">
-                  {cust.productName} (Unit #{uIdx + 1})
-                </span>
-                
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
-                  {cust.attributes.map((attr) => (
-                    <div key={attr.id} className="grid gap-1">
-                      <Label className="text-xs flex items-center gap-1">
-                        {attr.attributeName}
-                        {attr.isRequired && <span className="text-destructive font-bold">*</span>}
-                      </Label>
+            {item.customizations.map((cust, uIdx) => {
+              const isVariantGroup = cust.isVariantGroup
+              const groupProducts = isVariantGroup
+                ? availableProducts.filter((p: any) => p.variantGroupId === cust.variantGroupId)
+                : []
 
-                      {attr.inputType === 'option' ? (
-                        <NativeSelect
-                          value={cust.values[attr.id]?.selectedOptionId || ''}
-                          onChange={(e) => onCustomizationChange(index, uIdx, attr.id, 'selectedOptionId', e.target.value)}
-                          required={attr.isRequired}
-                        >
-                          <NativeSelectOption value="">-- Pilih Opsi --</NativeSelectOption>
-                          {attr.options?.map((opt: any) => (
-                            <NativeSelectOption key={opt.id} value={opt.id}>
-                              {opt.optionValue}
-                            </NativeSelectOption>
-                          ))}
-                        </NativeSelect>
-                      ) : attr.inputType === 'file' ? (
-                        <Input
-                          placeholder="Masukkan Tautan URL Berkas (Dropbox/Gdrive)"
-                          value={cust.values[attr.id]?.customValue || ''}
-                          onChange={(e) => onCustomizationChange(index, uIdx, attr.id, 'customValue', e.target.value)}
-                          required={attr.isRequired}
-                        />
-                      ) : (
-                        <Input
-                          type={attr.inputType === 'number' ? 'number' : 'text'}
-                          placeholder={`Masukkan ${attr.attributeName.toLowerCase()}...`}
-                          value={cust.values[attr.id]?.customValue || ''}
-                          onChange={(e) => onCustomizationChange(index, uIdx, attr.id, 'customValue', e.target.value)}
-                          required={attr.isRequired}
-                        />
-                      )}
+              return (
+                <div key={uIdx} className="bg-background p-3 border rounded-lg space-y-3 shadow-xs">
+                  <span className="font-semibold text-xs text-primary bg-primary/10 px-2 py-0.5 rounded-full">
+                    {cust.productName}
+                  </span>
+                  
+                  {isVariantGroup && (
+                    <div className="grid gap-1.5 max-w-md mt-2">
+                      <Label className="text-xs font-semibold">Pilih Varian Produk <span className="text-destructive font-bold">*</span></Label>
+                      <NativeSelect
+                        value={cust.selectedProductId || ''}
+                        onChange={(e) => onVariantProductChange(index, uIdx, e.target.value)}
+                        required
+                      >
+                        <NativeSelectOption value="">-- Pilih Varian --</NativeSelectOption>
+                        {groupProducts.map((p: any) => (
+                          <NativeSelectOption key={p.id} value={p.id}>
+                            {p.name} ({formatRupiah(p.basePrice)})
+                          </NativeSelectOption>
+                        ))}
+                      </NativeSelect>
                     </div>
-                  ))}
+                  )}
+
+                  {cust.attributes.length > 0 && (
+                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mt-2">
+                      {cust.attributes.map((attr) => (
+                        <div key={attr.id} className="grid gap-1">
+                          <Label className="text-xs flex items-center gap-1">
+                            {attr.attributeName}
+                            {attr.isRequired && <span className="text-destructive font-bold">*</span>}
+                          </Label>
+
+                          {attr.inputType === 'option' ? (
+                            <NativeSelect
+                              value={cust.values[attr.id]?.selectedOptionId || ''}
+                              onChange={(e) => onCustomizationChange(index, uIdx, attr.id, 'selectedOptionId', e.target.value)}
+                              required={attr.isRequired}
+                            >
+                              <NativeSelectOption value="">-- Pilih Opsi --</NativeSelectOption>
+                              {attr.options?.map((opt: any) => (
+                                <NativeSelectOption key={opt.id} value={opt.id}>
+                                  {opt.optionValue}
+                                </NativeSelectOption>
+                              ))}
+                            </NativeSelect>
+                          ) : attr.inputType === 'file' ? (
+                            <Input
+                              placeholder="Masukkan Tautan URL Berkas (Dropbox/Gdrive)"
+                              value={cust.values[attr.id]?.customValue || ''}
+                              onChange={(e) => onCustomizationChange(index, uIdx, attr.id, 'customValue', e.target.value)}
+                              required={attr.isRequired}
+                            />
+                          ) : (
+                            <Input
+                              type={attr.inputType === 'number' ? 'number' : 'text'}
+                              placeholder={`Masukkan ${attr.attributeName.toLowerCase()}...`}
+                              value={cust.values[attr.id]?.customValue || ''}
+                              onChange={(e) => onCustomizationChange(index, uIdx, attr.id, 'customValue', e.target.value)}
+                              required={attr.isRequired}
+                            />
+                          )}
+                        </div>
+                      ))}
+                    </div>
+                  )}
                 </div>
-              </div>
-            ))}
+              )
+            })}
           </div>
         </div>
       )}

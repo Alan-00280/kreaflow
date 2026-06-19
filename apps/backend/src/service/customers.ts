@@ -1,5 +1,5 @@
 import { OpenAPIHono } from '@hono/zod-openapi'
-import { PrismaClient } from '../generated/prisma/client.js'
+import { PrismaClient } from '@prisma/client'
 import { authMiddleware, UserSession } from '../middlewares/auth.js'
 import { listCustomersRoute } from '../routes/customers.js'
 
