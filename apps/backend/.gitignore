@@ -10,6 +10,9 @@ src/generated/
 # Turbo
 .turbo
 
+# Seeder is only for the development
+**/**/seed.ts
+
 # Build outputs
 dist
 build
