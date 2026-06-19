@@ -24,21 +24,27 @@ type ContextWithPrisma = {
 
 const app = new OpenAPIHono<ContextWithPrisma>();
 
+const allowedOrigins = [
+  process.env.FRONTEND_URL,
+  "http://localhost:3000",
+  "http://127.0.0.1:3000",
+];
+
 // Global CORS middleware
 app.use(
   "*",
   cors({
     origin: (origin) => {
+      if (!origin) return origin;
+
       if (
-        !origin ||
-        origin === "https://crawling-emu-unethical.ngrok-free.dev" ||
-        origin.endsWith(".ngrok-free.dev") ||
-        /^http:\/\/localhost:\d+$/.test(origin) ||
-        /^http:\/\/127\.0\.0\.1:\d+$/.test(origin)
+        allowedOrigins.includes(origin) ||
+        origin.endsWith(".ngrok-free.dev")
       ) {
         return origin;
       }
-      return "http://localhost:3000";
+
+      return null;
     },
     credentials: true,
     allowMethods: ["GET", "POST", "PUT", "DELETE", "OPTIONS", "PATCH"],
