@@ -17,6 +17,7 @@ import { getBundlesAction, getBundleDetailAction } from '@/server/bundle-actions
 import { createOrderAction } from '@/server/order-actions'
 import { getCustomersAction } from '@/server/customer-actions'
 import { OrderItemRow } from '../_components/order-item-row'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 
 interface FormItem {
   id: string // unique client-side ID for key mapping
@@ -99,12 +100,7 @@ export default function NewOrderPage() {
     }
   }
 
-  // Auto-generate invoice number if empty, for convenience
-  useEffect(() => {
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '')
-    const randSuffix = Math.floor(100 + Math.random() * 900)
-    setInvoiceNumber(`INV-${dateStr}-${randSuffix}`)
-  }, [])
+  // Auto-generate invoice number disabled: manual input required.
 
   // Helper: Get product details from cache or fetch it
   const fetchProductDetailsWithCache = async (prodId: string) => {
@@ -500,7 +496,7 @@ export default function NewOrderPage() {
                 id="invoice"
                 value={invoiceNumber}
                 onChange={(e) => setInvoiceNumber(e.target.value)}
-                placeholder="INV-XXXX"
+                placeholder="HIMTI-XXXX"
                 required
               />
             </div>
@@ -534,6 +530,7 @@ export default function NewOrderPage() {
                 </PopoverContent>
               </Popover>
             </div>
+
 
             {/* Customer Selector Dropdown */}
             <div className="grid gap-2 md:col-span-12">
