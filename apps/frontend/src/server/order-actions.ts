@@ -79,3 +79,26 @@ export async function createOrderAction(data: any) {
     return { success: false, error: 'Gagal terhubung ke backend' }
   }
 }
+
+export async function updateOrderStatusAction(id: string, data: { paymentStatus?: string; pickupStatus?: string }) {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${backendUrl}/orders/${id}`, {
+      method: 'PATCH',
+      headers,
+      body: JSON.stringify(data)
+    })
+
+    const body = await response.json()
+    if (!response.ok) {
+      return { success: false, error: body.error || 'Gagal memperbarui status nota pesanan' }
+    }
+
+    return { success: true, order: body }
+  } catch (error: any) {
+    console.error('updateOrderStatusAction error:', error)
+    return { success: false, error: 'Gagal terhubung ke backend' }
+  }
+}
+

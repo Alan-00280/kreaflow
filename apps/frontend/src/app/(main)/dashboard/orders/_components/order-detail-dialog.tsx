@@ -11,6 +11,7 @@ import {
 } from '@/components/ui/dialog'
 import { getOrderDetailAction } from '@/server/order-actions'
 import { WhatsAppButton } from '@/components/whatsapp-button'
+import { Badge } from '@/components/ui/badge'
 
 interface OrderDetailDialogProps {
   isOpen: boolean
@@ -43,6 +44,28 @@ export function OrderDetailDialog({ isOpen, onClose, orderId }: OrderDetailDialo
       currency: 'IDR',
       minimumFractionDigits: 0
     }).format(numeric)
+  }
+
+  const getPaymentStatusBadge = (status: string) => {
+    switch (status) {
+      case 'lunas':
+        return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20">Lunas</Badge>
+      case 'belum_lunas':
+      default:
+        return <Badge className="bg-rose-500/10 text-rose-600 border-rose-500/20 hover:bg-rose-500/20">Belum Lunas</Badge>
+    }
+  }
+
+  const getPickupStatusBadge = (status: string) => {
+    switch (status) {
+      case 'sudah_diambil':
+        return <Badge className="bg-emerald-500/10 text-emerald-600 border-emerald-500/20 hover:bg-emerald-500/20">Sudah Diambil</Badge>
+      case 'ditunda':
+        return <Badge className="bg-slate-500/10 text-slate-600 border-slate-500/20 hover:bg-slate-500/20">Ditunda</Badge>
+      case 'belum_diambil':
+      default:
+        return <Badge className="bg-amber-500/10 text-amber-600 border-amber-500/20 hover:bg-amber-500/20">Belum Diambil</Badge>
+    }
   }
 
   const formatDate = (dateStr: string) => {
@@ -79,8 +102,12 @@ export function OrderDetailDialog({ isOpen, onClose, orderId }: OrderDetailDialo
             <div className="grid grid-cols-2 gap-4 p-4 border rounded-lg bg-accent/10">
               <div className="space-y-1">
                 <p className="text-xs text-muted-foreground uppercase font-semibold">Nomor Invoice</p>
-                <p className="font-semibold text-lg">{order.invoiceNumber}</p>
-                <p className="text-xs text-muted-foreground">
+                <div className="flex flex-wrap items-center gap-1.5 mt-0.5">
+                  <p className="font-semibold text-lg leading-none">{order.invoiceNumber}</p>
+                  {getPaymentStatusBadge(order.paymentStatus)}
+                  {getPickupStatusBadge(order.pickupStatus)}
+                </div>
+                <p className="text-xs text-muted-foreground mt-1">
                   Tanggal Transaksi: <span className="font-semibold text-foreground">{formatOrderDate(order['order-date'])}</span>
                 </p>
                 <p className="text-xs text-muted-foreground/85">Dibuat Sistem: {formatDate(order.createdAt)}</p>

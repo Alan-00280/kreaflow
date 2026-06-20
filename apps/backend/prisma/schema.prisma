@@ -45,6 +45,17 @@ enum FulfillmentStatus {
   belum_menghubungi_vendor
 }
 
+enum PaymentStatus {
+  lunas
+  belum_lunas
+}
+
+enum PickupStatus {
+  belum_diambil
+  sudah_diambil
+  ditunda
+}
+
 // ─────────────────────────────────────────
 // MODELS
 // ─────────────────────────────────────────
@@ -142,16 +153,18 @@ model AttributeOption {
 }
 
 model Order {
-  id               BigInt      @id @default(autoincrement())
-  invoiceNumber    String      @unique @map("invoice_number") @db.VarChar(50)
-  recordedByUserId BigInt      @map("recorded_by_user_id")
-  customerId       BigInt      @map("customer_id")
-  totalAmount      Decimal     @map("total_amount") @db.Decimal(12, 2)
-  orderDate        DateTime    @map("order_date") @db.Date
-  createdAt        DateTime    @default(now()) @map("created_at")
-  updatedAt        DateTime    @updatedAt @map("updated_at")
-  recordedByUser   User        @relation(fields: [recordedByUserId], references: [id], onDelete: Restrict)
-  customer         Customer    @relation(fields: [customerId], references: [id], onDelete: Restrict)
+  id               BigInt        @id @default(autoincrement())
+  invoiceNumber    String        @unique @map("invoice_number") @db.VarChar(50)
+  recordedByUserId BigInt        @map("recorded_by_user_id")
+  customerId       BigInt        @map("customer_id")
+  totalAmount      Decimal       @map("total_amount") @db.Decimal(12, 2)
+  orderDate        DateTime      @map("order_date") @db.Date
+  paymentStatus    PaymentStatus @default(belum_lunas) @map("payment_status")
+  pickupStatus     PickupStatus  @default(belum_diambil) @map("pickup_status")
+  createdAt        DateTime      @default(now()) @map("created_at")
+  updatedAt        DateTime      @updatedAt @map("updated_at")
+  recordedByUser   User          @relation(fields: [recordedByUserId], references: [id], onDelete: Restrict)
+  customer         Customer      @relation(fields: [customerId], references: [id], onDelete: Restrict)
   orderItems       OrderItem[]
 
   @@map("orders")

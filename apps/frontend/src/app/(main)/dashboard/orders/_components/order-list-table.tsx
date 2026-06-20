@@ -3,6 +3,8 @@
 import { Eye } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { WhatsAppButton } from '@/components/whatsapp-button'
+import { cn } from '@/lib/utils'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import {
   Table,
   TableBody,
@@ -20,6 +22,8 @@ interface Order {
   totalAmount: string
   'order-date': string
   createdAt: string
+  paymentStatus: 'lunas' | 'belum_lunas'
+  pickupStatus: 'belum_diambil' | 'sudah_diambil' | 'ditunda'
   customer?: {
     name: string
     phoneNumber: string | null
@@ -34,9 +38,10 @@ interface Order {
 interface OrderListTableProps {
   orders: Order[]
   onView: (orderId: string) => void
+  onUpdateStatus: (orderId: string, updates: { paymentStatus?: 'lunas' | 'belum_lunas'; pickupStatus?: 'belum_diambil' | 'sudah_diambil' | 'ditunda' }) => void
 }
 
-export function OrderListTable({ orders, onView }: OrderListTableProps) {
+export function OrderListTable({ orders, onView, onUpdateStatus }: OrderListTableProps) {
   const formatRupiah = (value: string) => {
     const numeric = parseFloat(value)
     return new Intl.NumberFormat('id-ID', {
@@ -44,6 +49,28 @@ export function OrderListTable({ orders, onView }: OrderListTableProps) {
       currency: 'IDR',
       minimumFractionDigits: 0
     }).format(numeric)
+  }
+
+  const getPaymentStatusSelectClass = (status: string) => {
+    switch (status) {
+      case 'lunas':
+        return "[&_select]:bg-emerald-500/10 [&_select]:text-emerald-600 [&_select]:border-emerald-500/20"
+      case 'belum_lunas':
+      default:
+        return "[&_select]:bg-rose-500/10 [&_select]:text-rose-600 [&_select]:border-rose-500/20"
+    }
+  }
+
+  const getPickupStatusSelectClass = (status: string) => {
+    switch (status) {
+      case 'sudah_diambil':
+        return "[&_select]:bg-emerald-500/10 [&_select]:text-emerald-600 [&_select]:border-emerald-500/20"
+      case 'ditunda':
+        return "[&_select]:bg-slate-500/10 [&_select]:text-slate-600 [&_select]:border-slate-500/20"
+      case 'belum_diambil':
+      default:
+        return "[&_select]:bg-amber-500/10 [&_select]:text-amber-600 [&_select]:border-amber-500/20"
+    }
   }
 
   const formatDate = (dateStr: string) => {
@@ -82,6 +109,8 @@ export function OrderListTable({ orders, onView }: OrderListTableProps) {
             <TableHead>Dicatat Oleh</TableHead>
             <TableHead className="text-right w-40">Total Transaksi</TableHead>
             <TableHead>Tanggal Transaksi</TableHead>
+            <TableHead className="text-center">Status Bayar</TableHead>
+            <TableHead className="text-center">Status Ambil</TableHead>
             <TableHead className="text-center w-32">Aksi</TableHead>
           </TableRow>
         </TableHeader>
@@ -108,6 +137,29 @@ export function OrderListTable({ orders, onView }: OrderListTableProps) {
               </TableCell>
               <TableCell className="text-muted-foreground text-sm">
                 {formatOrderDate(order['order-date'])}
+              </TableCell>
+              <TableCell className="text-center">
+                <NativeSelect
+                  size="sm"
+                  className={cn("w-32 mx-auto", getPaymentStatusSelectClass(order.paymentStatus))}
+                  value={order.paymentStatus}
+                  onChange={(e) => onUpdateStatus(order.id, { paymentStatus: e.target.value as any })}
+                >
+                  <NativeSelectOption value="belum_lunas">Belum Lunas</NativeSelectOption>
+                  <NativeSelectOption value="lunas">Lunas</NativeSelectOption>
+                </NativeSelect>
+              </TableCell>
+              <TableCell className="text-center">
+                <NativeSelect
+                  size="sm"
+                  className={cn("w-36 mx-auto", getPickupStatusSelectClass(order.pickupStatus))}
+                  value={order.pickupStatus}
+                  onChange={(e) => onUpdateStatus(order.id, { pickupStatus: e.target.value as any })}
+                >
+                  <NativeSelectOption value="belum_diambil">Belum Diambil</NativeSelectOption>
+                  <NativeSelectOption value="sudah_diambil">Sudah Diambil</NativeSelectOption>
+                  <NativeSelectOption value="ditunda">Ditunda</NativeSelectOption>
+                </NativeSelect>
               </TableCell>
               <TableCell>
                 <div className="flex items-center justify-center gap-1.5">

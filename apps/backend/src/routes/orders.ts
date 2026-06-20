@@ -11,6 +11,8 @@ export const orderResponseSchema = z.object({
   customerId: z.string().openapi({ description: "Customer ID pembeli", example: "1" }),
   totalAmount: z.string().openapi({ description: "Total Nilai Transaksi", example: "120000.00" }),
   'order-date': z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ description: "Tanggal Transaksi (YYYY-MM-DD)", example: "2026-06-18" }),
+  paymentStatus: z.enum(["lunas", "belum_lunas"]).openapi({ description: "Status Pembayaran", example: "belum_lunas" }),
+  pickupStatus: z.enum(["belum_diambil", "sudah_diambil", "ditunda"]).openapi({ description: "Status Pengambilan", example: "belum_diambil" }),
   createdAt: z.string().openapi({ description: "Tanggal Transaksi Dibuat", example: "2026-06-18T00:00:00Z" })
 }).openapi('OrderResponse')
 
@@ -89,6 +91,8 @@ export const createOrderRequestSchema = z.object({
   customerPhone: z.string().min(1).openapi({ description: "Nomor HP/WhatsApp Pelanggan (Wajib)", example: "08123456789" }),
   customerGeneration: z.number().int().optional().nullable().openapi({ description: "Angkatan/Generasi Customer (opsional)", example: 2024 }),
   'order-date': z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ description: "Tanggal Transaksi (YYYY-MM-DD)", example: "2026-06-18" }),
+  paymentStatus: z.enum(["lunas", "belum_lunas"]).optional().openapi({ description: "Status Pembayaran (opsional)", example: "belum_lunas" }),
+  pickupStatus: z.enum(["belum_diambil", "sudah_diambil", "ditunda"]).optional().openapi({ description: "Status Pengambilan (opsional)", example: "belum_diambil" }),
   items: z.array(orderItemCreateSchema).min(1).openapi({ description: "Daftar item produk satuan / bundling dalam pesanan" })
 }).openapi('CreateOrderRequest')
 
@@ -240,3 +244,69 @@ export const getOrderDetailRoute = createRoute({
     }
   }
 })
+
+export const updateOrderStatusRoute = createRoute({
+  method: 'patch',
+  path: '/{id}',
+  tags: ['Orders'],
+  summary: 'Memperbarui Status Nota Pesanan',
+  description: 'Memperbarui status pembayaran atau status pengambilan nota pesanan. Dapat diakses oleh Admin & Operator.',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ description: "ID Nota Pesanan", example: "1" })
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            paymentStatus: z.enum(["lunas", "belum_lunas"]).optional().openapi({ description: "Status Pembayaran", example: "lunas" }),
+            pickupStatus: z.enum(["belum_diambil", "sudah_diambil", "ditunda"]).optional().openapi({ description: "Status Pengambilan", example: "sudah_diambil" })
+          }).openapi('UpdateOrderStatusRequest')
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: orderDetailResponseSchema,
+        },
+      },
+      description: 'Status nota pesanan berhasil diperbarui',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema,
+        },
+      },
+      description: 'Payload tidak valid',
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema,
+        },
+      },
+      description: 'Unauthorized: Sesi tidak aktif',
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema,
+        },
+      },
+      description: 'Nota pesanan tidak ditemukan',
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema,
+        },
+      },
+      description: 'Kesalahan internal server',
+    }
+  }
+})
+

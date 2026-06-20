@@ -107,6 +107,54 @@ function SidebarProvider({
     window.addEventListener("keydown", handleKeyDown)
     return () => window.removeEventListener("keydown", handleKeyDown)
   }, [toggleSidebar])
+  // Adds a touch gesture to open the sidebar on mobile
+  React.useEffect(() => {
+    if (!isMobile) return
+
+    let startX = 0
+    let startY = 0
+
+    const handleTouchStart = (e: TouchEvent) => {
+      const touch = e.touches[0]
+      const screenWidth = window.innerWidth
+
+      // Mulai swipe dari area tengah layar (±50px dari center)
+      const centerX = screenWidth / 2
+
+      if (Math.abs(touch.clientX - centerX) <= 50) {
+        startX = touch.clientX
+        startY = touch.clientY
+      } else {
+        startX = 0
+        startY = 0
+      }
+    }
+
+    const handleTouchEnd = (e: TouchEvent) => {
+      if (startX === 0) return
+
+      const touch = e.changedTouches[0]
+      const screenWidth = window.innerWidth
+
+      const diffX = touch.clientX - startX
+      const diffY = touch.clientY - startY
+
+      // Harus berakhir di area kanan layar
+      const isEndOnRight = touch.clientX > screenWidth * 0.8
+
+      if (diffX > 80 && Math.abs(diffY) < 100 && isEndOnRight) {
+        setOpenMobile(true)
+      }
+    }
+
+    window.addEventListener("touchstart", handleTouchStart, { passive: true })
+    window.addEventListener("touchend", handleTouchEnd, { passive: true })
+
+    return () => {
+      window.removeEventListener("touchstart", handleTouchStart)
+      window.removeEventListener("touchend", handleTouchEnd)
+    }
+  }, [isMobile, setOpenMobile])
 
   // We add a state so that we can do data-state="expanded" or "collapsed".
   // This makes it easier to style the sidebar with Tailwind classes.
@@ -555,7 +603,7 @@ function SidebarMenuAction({
       className={cn(
         "absolute top-1.5 right-1 flex aspect-square w-5 items-center justify-center rounded-md p-0 text-sidebar-foreground ring-sidebar-ring outline-hidden transition-transform group-data-[collapsible=icon]:hidden peer-hover/menu-button:text-sidebar-accent-foreground peer-data-[size=default]/menu-button:top-1.5 peer-data-[size=lg]/menu-button:top-2.5 peer-data-[size=sm]/menu-button:top-1 after:absolute after:-inset-2 hover:bg-sidebar-accent hover:text-sidebar-accent-foreground focus-visible:ring-2 md:after:hidden [&>svg]:size-4 [&>svg]:shrink-0",
         showOnHover &&
-          "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground aria-expanded:opacity-100 md:opacity-0",
+        "group-focus-within/menu-item:opacity-100 group-hover/menu-item:opacity-100 peer-data-active/menu-button:text-sidebar-accent-foreground aria-expanded:opacity-100 md:opacity-0",
         className
       )}
       {...props}

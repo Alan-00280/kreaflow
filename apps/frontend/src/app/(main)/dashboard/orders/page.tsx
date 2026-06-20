@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useSession } from '@/components/providers/session-provider'
-import { getOrdersAction } from '@/server/order-actions'
+import { getOrdersAction, updateOrderStatusAction } from '@/server/order-actions'
 import {
   Pagination,
   PaginationContent,
@@ -19,6 +19,7 @@ import {
 import { Popover, PopoverContent, PopoverTrigger } from '@/components/ui/popover'
 import { Calendar } from '@/components/ui/calendar'
 import { cn } from '@/lib/utils'
+import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 
 import { OrderListTable } from './_components/order-list-table'
 import { OrderDetailDialog } from './_components/order-detail-dialog'
@@ -31,6 +32,8 @@ interface Order {
   totalAmount: string
   'order-date': string
   createdAt: string
+  paymentStatus: 'lunas' | 'belum_lunas'
+  pickupStatus: 'belum_diambil' | 'sudah_diambil' | 'ditunda'
   customer?: {
     name: string
     phoneNumber: string | null
@@ -53,6 +56,8 @@ export default function OrdersPage() {
   const [searchQuery, setSearchQuery] = useState('')
   const [startDate, setStartDate] = useState<Date | undefined>(undefined)
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
+  const [filterPayment, setFilterPayment] = useState<string>('all')
+  const [filterPickup, setFilterPickup] = useState<string>('all')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
@@ -68,16 +73,40 @@ export default function OrdersPage() {
     setIsLoading(false)
   }
 
+  const handleUpdateOrderStatus = async (
+    orderId: string,
+    updates: { paymentStatus?: 'lunas' | 'belum_lunas'; pickupStatus?: 'belum_diambil' | 'sudah_diambil' | 'ditunda' }
+  ) => {
+    const toastId = toast.loading('Memperbarui status pesanan...')
+    const res = await updateOrderStatusAction(orderId, updates)
+    if (res.success) {
+      toast.success('Status pesanan berhasil diperbarui!', { id: toastId })
+      setOrders((prev) =>
+        prev.map((o) =>
+          o.id === orderId
+            ? {
+                ...o,
+                paymentStatus: updates.paymentStatus ?? o.paymentStatus,
+                pickupStatus: updates.pickupStatus ?? o.pickupStatus
+              }
+            : o
+        )
+      )
+    } else {
+      toast.error('Gagal memperbarui status', { id: toastId, description: res.error })
+    }
+  }
+
   useEffect(() => {
     if (session) {
       fetchOrders()
     }
   }, [session])
 
-  // Reset to page 1 on search or date change
+  // Reset to page 1 on search, date, or status filter change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, startDate, endDate])
+  }, [searchQuery, startDate, endDate, filterPayment, filterPickup])
 
   const handleOpenDetail = (id: string) => {
     setSelectedOrderId(id)
@@ -107,7 +136,10 @@ export default function OrdersPage() {
       if (orderDateStr > endStr) matchesDate = false
     }
 
-    return (matchesInvoice || matchesCustomer) && matchesDate
+    const matchesPayment = filterPayment === 'all' || order.paymentStatus === filterPayment
+    const matchesPickup = filterPickup === 'all' || order.pickupStatus === filterPickup
+
+    return (matchesInvoice || matchesCustomer) && matchesDate && matchesPayment && matchesPickup
   })
 
   // Pagination calculation
@@ -209,7 +241,30 @@ export default function OrdersPage() {
             </Popover>
           </div>
 
-          {(startDate || endDate) && (
+          <NativeSelect
+            size="sm"
+            className="w-36 h-9"
+            value={filterPayment}
+            onChange={(e) => setFilterPayment(e.target.value)}
+          >
+            <NativeSelectOption value="all">Semua Bayar</NativeSelectOption>
+            <NativeSelectOption value="belum_lunas">Belum Lunas</NativeSelectOption>
+            <NativeSelectOption value="lunas">Lunas</NativeSelectOption>
+          </NativeSelect>
+
+          <NativeSelect
+            size="sm"
+            className="w-40 h-9"
+            value={filterPickup}
+            onChange={(e) => setFilterPickup(e.target.value)}
+          >
+            <NativeSelectOption value="all">Semua Ambil</NativeSelectOption>
+            <NativeSelectOption value="belum_diambil">Belum Diambil</NativeSelectOption>
+            <NativeSelectOption value="sudah_diambil">Sudah Diambil</NativeSelectOption>
+            <NativeSelectOption value="ditunda">Ditunda</NativeSelectOption>
+          </NativeSelect>
+
+          {(startDate || endDate || filterPayment !== 'all' || filterPickup !== 'all') && (
             <Button
               type="button"
               variant="ghost"
@@ -217,6 +272,8 @@ export default function OrdersPage() {
               onClick={() => {
                 setStartDate(undefined)
                 setEndDate(undefined)
+                setFilterPayment('all')
+                setFilterPickup('all')
               }}
               className="h-9 text-xs px-2 text-muted-foreground hover:text-foreground"
             >
@@ -230,7 +287,7 @@ export default function OrdersPage() {
         <div className="py-12 text-center text-sm text-muted-foreground">Memuat riwayat transaksi...</div>
       ) : (
         <div className="flex flex-col gap-4">
-          <OrderListTable orders={paginatedOrders} onView={handleOpenDetail} />
+          <OrderListTable orders={paginatedOrders} onView={handleOpenDetail} onUpdateStatus={handleUpdateOrderStatus} />
 
           {/* Pagination Controls */}
           {totalPages > 1 && (

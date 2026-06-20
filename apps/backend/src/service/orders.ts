@@ -4,7 +4,8 @@ import { authMiddleware, UserSession } from '../middlewares/auth.js'
 import {
   createOrderRoute,
   listOrdersRoute,
-  getOrderDetailRoute
+  getOrderDetailRoute,
+  updateOrderStatusRoute
 } from '../routes/orders.js'
 
 type ContextWithPrisma = {
@@ -28,6 +29,8 @@ function serializeOrder(order: any) {
     customerId: order.customerId.toString(),
     totalAmount: order.totalAmount.toString(),
     'order-date': order.orderDate ? order.orderDate.toISOString().slice(0, 10) : '',
+    paymentStatus: order.paymentStatus,
+    pickupStatus: order.pickupStatus,
     createdAt: order.createdAt.toISOString(),
     updatedAt: order.updatedAt.toISOString(),
     customer: order.customer ? {
@@ -290,7 +293,9 @@ orders.openapi(createOrderRoute, async (c) => {
           recordedByUserId: BigInt(user.id),
           customerId: customer.id,
           totalAmount: calculatedTotal,
-          orderDate: new Date(body['order-date'])
+          orderDate: new Date(body['order-date']),
+          paymentStatus: body.paymentStatus,
+          pickupStatus: body.pickupStatus
         }
       })
 
@@ -485,6 +490,76 @@ orders.openapi(getOrderDetailRoute, async (c) => {
 
   } catch (error: any) {
     console.error('Get order detail error:', error)
+    return c.json({ error: 'Internal server error', detail: error.message }, 500)
+  }
+})
+
+// 4. PATCH /:id - Update Order Status (Admin & Operator)
+orders.openapi(updateOrderStatusRoute, async (c) => {
+  try {
+    const prisma = c.get('prisma')
+    const user = c.get('user') as UserSession | undefined
+    if (!user) {
+      return c.json({ error: 'Unauthorized: Sesi tidak ditemukan' }, 401)
+    }
+
+    const { id } = c.req.valid('param')
+    const body = c.req.valid('json')
+
+    // Find the order first
+    const order = await prisma.order.findUnique({
+      where: { id: BigInt(id) }
+    })
+    if (!order) {
+      return c.json({ error: 'Nota pesanan tidak ditemukan' }, 404)
+    }
+
+    // Update status in DB
+    const updated = await prisma.order.update({
+      where: { id: BigInt(id) },
+      data: {
+        paymentStatus: body.paymentStatus,
+        pickupStatus: body.pickupStatus
+      },
+      include: {
+        customer: true,
+        recordedByUser: {
+          select: {
+            id: true,
+            name: true,
+            email: true,
+            role: true
+          }
+        },
+        orderItems: {
+          include: {
+            product: true,
+            bundle: true,
+            orderBundleVariantSelections: {
+              include: {
+                variantGroup: true,
+                selectedProduct: true
+              }
+            },
+            orderItemDetails: {
+              include: {
+                productAttribute: {
+                  include: {
+                    attributeOptions: true
+                  }
+                },
+                attributeOption: true
+              }
+            }
+          }
+        }
+      }
+    })
+
+    return c.json(serializeOrder(updated), 200)
+
+  } catch (error: any) {
+    console.error('Update order status error:', error)
     return c.json({ error: 'Internal server error', detail: error.message }, 500)
   }
 })
