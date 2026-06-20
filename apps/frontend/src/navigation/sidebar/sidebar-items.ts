@@ -8,6 +8,7 @@ import {
   Users,
   ClipboardList,
   Layers,
+  Zap,
 } from 'lucide-react'
 import type { LucideIcon } from 'lucide-react'
 
@@ -71,6 +72,12 @@ export const sidebarItems: NavGroup[] = [
         title: 'Ringkasan Pesanan',
         url: '/dashboard/product-order-summaries',
         icon: ClipboardList,
+        roles: ['admin', 'operator']
+      },
+      {
+        title: 'Ringkasan Cepat',
+        url: '/dashboard/quick-summary',
+        icon: Zap,
         roles: ['admin', 'operator']
       }
     ]
