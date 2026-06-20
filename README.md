@@ -16,11 +16,11 @@ graph TD
     end
 
     subgraph apps/ [apps/]
-        frontend["@kreaflow/frontend<br>(Next.js 16 UI - Port 3000)"]
-        backend["@kreaflow/backend<br>(Hono.js API - Port 8000)"]
+        frontend["@kreaflow/frontend<br>(Next.js 16 UI Port AAAA)"]
+        backend["@kreaflow/backend<br>(Hono.js API Port BBBB)"]
     end
 
-    db[(PostgreSQL DB<br>Docker Port 5433)]
+    db[(PostgreSQL DB<br>Docker)]
 
     shared-schemas -->|Imported as local package| frontend
     shared-schemas -->|Imported as local package| backend
