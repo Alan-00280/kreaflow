@@ -7,7 +7,9 @@ import {
   getSummaryDetailRoute,
   updateSummaryProductsRoute,
   exportSummaryProductRoute,
-  trashSummaryRoute
+  trashSummaryRoute,
+  quickSummaryRoute,
+  quickExportRoute
 } from '../routes/product-order-summaries.js'
 
 type ContextWithPrisma = {
@@ -186,6 +188,259 @@ productOrderSummaries.openapi(listSummariesRoute, async (c) => {
     return c.json(list.map(serializeSummary), 200)
   } catch (error: any) {
     console.error('List product order summaries error:', error)
+    return c.json({ error: 'Terjadi kesalahan internal server', detail: error.message }, 500)
+  }
+})
+
+// GET /quick - Quick summary aggregation on-the-fly (no save)
+productOrderSummaries.openapi(quickSummaryRoute, async (c) => {
+  try {
+    const authCheck = requireRole(['admin', 'operator'])
+    let isAuthorized = false
+    await authCheck(c, async () => { isAuthorized = true })
+    if (!isAuthorized) return c.json({ error: 'Forbidden' }, 403) as any
+
+    const prisma = c.get('prisma')
+    const { startDate, endDate } = c.req.valid('query')
+
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+
+    // 1. Fetch all OrderItems within order date range
+    const ordersInRange = await prisma.order.findMany({
+      where: {
+        orderDate: {
+          gte: start,
+          lte: end
+        }
+      },
+      include: {
+        orderItems: true
+      }
+    })
+
+    // 2. Aggregate quantities by productId
+    const productQuantities: Record<string, number> = {}
+
+    for (const order of ordersInRange) {
+      for (const item of order.orderItems) {
+        if (item.productId) {
+          const prodIdStr = item.productId.toString()
+          productQuantities[prodIdStr] = (productQuantities[prodIdStr] || 0) + item.quantity
+        } else if (item.bundleId) {
+          // Resolve bundle constituent products
+          const bundleProducts = await prisma.bundleProduct.findMany({
+            where: { bundleId: item.bundleId }
+          })
+          for (const bp of bundleProducts) {
+            if (bp.productId) {
+              const prodIdStr = bp.productId.toString()
+              productQuantities[prodIdStr] = (productQuantities[prodIdStr] || 0) + (item.quantity * bp.quantity)
+            } else if (bp.variantGroupId) {
+              const selections = await prisma.orderBundleVariantSelection.findMany({
+                where: {
+                  orderItemId: item.id,
+                  variantGroupId: bp.variantGroupId
+                }
+              })
+              for (const selection of selections) {
+                const prodIdStr = selection.selectedProductId.toString()
+                productQuantities[prodIdStr] = (productQuantities[prodIdStr] || 0) + item.quantity
+              }
+            }
+          }
+        }
+      }
+    }
+
+    // 3. Load product details for the aggregated products
+    const productIds = Object.keys(productQuantities).map(id => BigInt(id))
+    const products = await prisma.product.findMany({
+      where: {
+        id: { in: productIds }
+      }
+    })
+
+    // 4. Format response list
+    const result = products.map((prod) => {
+      const prodIdStr = prod.id.toString()
+      return {
+        productId: prodIdStr,
+        productName: prod.name,
+        basePrice: prod.basePrice.toString(),
+        totalQuantity: productQuantities[prodIdStr] || 0
+      }
+    }).filter(item => item.totalQuantity > 0)
+
+    // Sort by name ascending
+    result.sort((a, b) => a.productName.localeCompare(b.productName))
+
+    return c.json(result, 200)
+  } catch (error: any) {
+    console.error('Quick summary aggregation error:', error)
+    return c.json({ error: 'Terjadi kesalahan internal server', detail: error.message }, 500)
+  }
+})
+
+// GET /quick/export - Export quick summary transactions to CSV (no save)
+productOrderSummaries.openapi(quickExportRoute, async (c) => {
+  try {
+    const authCheck = requireRole(['admin', 'operator'])
+    let isAuthorized = false
+    await authCheck(c, async () => { isAuthorized = true })
+    if (!isAuthorized) return c.json({ error: 'Forbidden' }, 403) as any
+
+    const prisma = c.get('prisma')
+    const { startDate, endDate, productId } = c.req.valid('query')
+
+    const start = new Date(startDate)
+    const end = new Date(endDate)
+
+    const product = await prisma.product.findUnique({
+      where: { id: BigInt(productId) }
+    })
+    if (!product) {
+      return c.json({ error: 'Produk tidak ditemukan' }, 404)
+    }
+
+    // Query bundles containing this product directly
+    const directBundleProducts = await prisma.bundleProduct.findMany({
+      where: { productId: BigInt(productId) }
+    })
+    const directBundleIds = directBundleProducts.map((bp) => bp.bundleId)
+
+    // Query bundles containing the variant group of this product (if any)
+    let variantGroupBundleIds: bigint[] = []
+    if (product.variantGroupId) {
+      const groupBundleProducts = await prisma.bundleProduct.findMany({
+        where: { variantGroupId: product.variantGroupId }
+      })
+      variantGroupBundleIds = groupBundleProducts.map((bp) => bp.bundleId)
+    }
+
+    // Retrieve order items in date range
+    const orderItems = await prisma.orderItem.findMany({
+      where: {
+        OR: [
+          { productId: BigInt(productId) },
+          { bundleId: { in: directBundleIds } },
+          {
+            bundleId: { in: variantGroupBundleIds },
+            orderBundleVariantSelections: {
+              some: {
+                selectedProductId: BigInt(productId)
+              }
+            }
+          }
+        ],
+        order: {
+          orderDate: {
+            gte: start,
+            lte: end
+          }
+        }
+      },
+      include: {
+        order: {
+          include: {
+            customer: true
+          }
+        },
+        orderBundleVariantSelections: true,
+        orderItemDetails: {
+          where: {
+            productAttribute: {
+              productId: BigInt(productId)
+            }
+          },
+          include: {
+            productAttribute: true,
+            attributeOption: true
+          }
+        }
+      },
+      orderBy: {
+        order: {
+          orderDate: 'asc'
+        }
+      }
+    })
+
+    // Fetch dynamic attributes
+    const attributes = await prisma.productAttribute.findMany({
+      where: { productId: BigInt(productId) },
+      orderBy: { id: 'asc' }
+    })
+    const attributeNames = attributes.map(a => a.attributeName)
+
+    function escapeCSVValue(val: any): string {
+      if (val === null || val === undefined) return ''
+      const str = String(val)
+      if (str.includes(',') || str.includes('"') || str.includes('\n') || str.includes('\r')) {
+        return `"${str.replace(/"/g, '""')}"`
+      }
+      return str
+    }
+
+    const headers = ['Invoice', 'Tanggal Nota', 'Nama Pelanggan', 'Qty', 'Harga Beli', ...attributeNames]
+    const csvRows = [headers.map(escapeCSVValue).join(',')]
+
+    for (const item of orderItems) {
+      let instancesCount = 0
+
+      if (item.productId && item.productId === BigInt(productId)) {
+        instancesCount = item.quantity
+      } else if (item.bundleId) {
+        const bpDirect = directBundleProducts.find(b => b.bundleId === item.bundleId)
+        if (bpDirect) {
+          instancesCount = item.quantity * bpDirect.quantity
+        } else if (product.variantGroupId) {
+          const selectionsCount = item.orderBundleVariantSelections.filter(
+            (s) => s.selectedProductId === BigInt(productId) && s.variantGroupId === product.variantGroupId
+          ).length
+          instancesCount = item.quantity * selectionsCount
+        }
+      }
+
+      const invoice = item.order?.invoiceNumber || '-'
+      const dateStr = item.order?.orderDate ? item.order.orderDate.toISOString().slice(0, 10) : '-'
+      const customerName = item.order?.customer?.name || '-'
+      const price = item.priceAtPurchase.toString()
+
+      // Sort orderItemDetails by auto-increment ID ascending to map consistently to units
+      const sortedDetails = [...item.orderItemDetails].sort((a, b) => {
+        const aId = BigInt(a.id)
+        const bId = BigInt(b.id)
+        return aId < bId ? -1 : aId > bId ? 1 : 0
+      })
+
+      // Output a row with quantity 1 for each instance of this product in this order item
+      for (let i = 0; i < instancesCount; i++) {
+        const baseData = [invoice, dateStr, customerName, '1', price]
+
+        const customData = attributes.map((attr) => {
+          const attrDetails = sortedDetails.filter(d => d.attributeId === attr.id)
+          const detail = attrDetails[i]
+          if (!detail) return ''
+          if (attr.inputType === 'option') {
+            return detail.attributeOption?.optionValue || ''
+          }
+          return detail.customValue || ''
+        })
+
+        const combined = [...baseData, ...customData]
+        csvRows.push(combined.map(escapeCSVValue).join(','))
+      }
+    }
+
+    const csvString = csvRows.join('\r\n')
+
+    c.header('Content-Type', 'text/csv')
+    c.header('Content-Disposition', `attachment; filename=quick-summary-${startDate}-${endDate}-product-${productId}.csv`)
+    return c.text(csvString, 200)
+
+  } catch (error: any) {
+    console.error('Export quick summary product error:', error)
     return c.json({ error: 'Terjadi kesalahan internal server', detail: error.message }, 500)
   }
 })

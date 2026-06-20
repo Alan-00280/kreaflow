@@ -152,6 +152,113 @@ export const listSummariesRoute = createRoute({
   }
 })
 
+export const quickSummaryItemSchema = z.object({
+  productId: z.string().openapi({ example: "1" }),
+  productName: z.string().openapi({ example: "Ganci Akrilik" }),
+  basePrice: z.string().openapi({ example: "12000" }),
+  totalQuantity: z.number().openapi({ example: 15 })
+}).openapi('QuickSummaryItem')
+
+export const quickSummaryRoute = createRoute({
+  method: 'get',
+  path: '/quick',
+  tags: ['Product Order Summaries'],
+  summary: 'Mendapatkan Ringkasan Cepat tanpa Simpan (Admin & Operator)',
+  description: 'Menghitung agregasi kuantitas produk berdasarkan rentang tanggal pesanan secara langsung.',
+  request: {
+    query: z.object({
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ description: "Tanggal Mulai (YYYY-MM-DD)", example: "2026-06-01" }),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ description: "Tanggal Akhir (YYYY-MM-DD)", example: "2026-06-12" })
+    })
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.array(quickSummaryItemSchema)
+        }
+      },
+      description: 'Hasil ringkasan cepat berhasil dihitung'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Request parameter tidak valid'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+
+export const quickExportRoute = createRoute({
+  method: 'get',
+  path: '/quick/export',
+  tags: ['Product Order Summaries'],
+  summary: 'Ekspor Detail Transaksi Ringkasan Cepat ke CSV (Admin & Operator)',
+  description: 'Mengunduh file CSV detail transaksi produk dalam rentang tanggal tertentu.',
+  request: {
+    query: z.object({
+      startDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ description: "Tanggal Mulai (YYYY-MM-DD)", example: "2026-06-01" }),
+      endDate: z.string().regex(/^\d{4}-\d{2}-\d{2}$/).openapi({ description: "Tanggal Akhir (YYYY-MM-DD)", example: "2026-06-12" }),
+      productId: z.string().openapi({ description: "ID Produk", example: "1" })
+    })
+  },
+  responses: {
+    200: {
+      description: 'Stream download file CSV berhasil diproses'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Request parameter tidak valid'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Produk tidak ditemukan'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+
 export const getSummaryDetailRoute = createRoute({
   method: 'get',
   path: '/{id}',
