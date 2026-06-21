@@ -12,6 +12,7 @@ import {
 import { getOrderDetailAction } from '@/server/order-actions'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 import { Badge } from '@/components/ui/badge'
+import { getBundleDetailAction } from '@/server/bundle-actions'
 
 interface OrderDetailDialogProps {
   isOpen: boolean
@@ -22,18 +23,41 @@ interface OrderDetailDialogProps {
 export function OrderDetailDialog({ isOpen, onClose, orderId }: OrderDetailDialogProps) {
   const [order, setOrder] = useState<any | null>(null)
   const [isLoading, setIsLoading] = useState(false)
+  const [bundlesCache, setBundlesCache] = useState<{ [id: string]: any }>({})
 
   useEffect(() => {
     if (isOpen && orderId) {
       setIsLoading(true)
-      getOrderDetailAction(orderId).then((res) => {
+      getOrderDetailAction(orderId).then(async (res) => {
         if (res.success && res.order) {
           setOrder(res.order)
+
+          // Identify unique bundle IDs in the order
+          const bundleIds = Array.from(
+            new Set(
+              res.order.items
+                .filter((item: any) => item.bundleId)
+                .map((item: any) => item.bundleId)
+            )
+          ) as string[]
+
+          // Load bundle details for each unique bundle ID
+          const cache: { [id: string]: any } = {}
+          await Promise.all(
+            bundleIds.map(async (bId) => {
+              const bRes = await getBundleDetailAction(bId)
+              if (bRes.success && bRes.bundle) {
+                cache[bId] = bRes.bundle
+              }
+            })
+          )
+          setBundlesCache(cache)
         }
         setIsLoading(false)
       })
     } else {
       setOrder(null)
+      setBundlesCache({})
     }
   }, [isOpen, orderId])
 
@@ -175,6 +199,24 @@ export function OrderDetailDialog({ isOpen, onClose, orderId }: OrderDetailDialo
                           <span>{formatRupiah(subtotal)}</span>
                         </div>
                       </div>
+
+                      {/* Bundle Products Info */}
+                      {isBundle && item.bundleId && bundlesCache[item.bundleId] && (
+                        <div className="px-3 py-2 border-b bg-card text-xs text-muted-foreground">
+                          <span className="font-semibold block mb-1">Daftar Produk Penyusun Paket:</span>
+                          <ul className="list-disc pl-4 space-y-0.5">
+                            {bundlesCache[item.bundleId].products?.map((bp: any, bpIdx: number) => {
+                              const name = bp.product?.name || bp.variantGroup?.name || 'Produk'
+                              return (
+                                <li key={bpIdx}>
+                                  {name} <span className="font-medium text-foreground">(Kuantitas: {bp.quantity})</span>
+                                  {bp.variantGroupId && <span className="text-xs italic ml-1">(Pilihan Varian)</span>}
+                                </li>
+                              )
+                            })}
+                          </ul>
+                        </div>
+                      )}
 
                       {/* Customization Details */}
                       {item.details && item.details.length > 0 ? (

@@ -102,3 +102,47 @@ export async function updateOrderStatusAction(id: string, data: { paymentStatus?
   }
 }
 
+export async function deleteOrderAction(id: string) {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${backendUrl}/orders/${id}`, {
+      method: 'DELETE',
+      headers
+    })
+
+    const body = await response.json()
+    if (!response.ok) {
+      return { success: false, error: body.error || 'Gagal menghapus nota pesanan' }
+    }
+
+    return { success: true }
+  } catch (error: any) {
+    console.error('deleteOrderAction error:', error)
+    return { success: false, error: 'Gagal terhubung ke backend' }
+  }
+}
+
+export async function updateOrderAction(id: string, data: any) {
+  try {
+    const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
+    const headers = await getAuthHeaders()
+    const response = await fetch(`${backendUrl}/orders/${id}`, {
+      method: 'PUT',
+      headers,
+      body: JSON.stringify(data)
+    })
+
+    const body = await response.json()
+    if (!response.ok) {
+      return { success: false, error: body.error || 'Gagal memperbarui nota pesanan' }
+    }
+
+    return { success: true, order: body }
+  } catch (error: any) {
+    console.error('updateOrderAction error:', error)
+    return { success: false, error: 'Gagal terhubung ke backend' }
+  }
+}
+
+
