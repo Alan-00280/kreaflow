@@ -310,3 +310,124 @@ export const updateOrderStatusRoute = createRoute({
   }
 })
 
+export const deleteOrderRoute = createRoute({
+  method: 'delete',
+  path: '/{id}',
+  tags: ['Orders'],
+  summary: 'Menghapus Nota Pesanan',
+  description: 'Menghapus nota pesanan beserta seluruh item belanja dan kustomisasinya secara permanen. Terbuka untuk Admin & Operator.',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ description: "ID Nota Pesanan", example: "1" })
+    })
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: z.object({
+            success: z.boolean().openapi({ example: true }),
+            message: z.string().openapi({ example: "Nota pesanan berhasil dihapus" })
+          })
+        }
+      },
+      description: 'Nota pesanan berhasil dihapus'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Nota pesanan sudah diambil dan tidak dapat dihapus'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Nota pesanan tidak ditemukan'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+
+export const updateOrderRoute = createRoute({
+  method: 'put',
+  path: '/{id}',
+  tags: ['Orders'],
+  summary: 'Memperbarui Nota Pesanan',
+  description: 'Memperbarui seluruh data nota pesanan (customer, order items, kustomisasi, dll). Terbuka untuk Admin & Operator.',
+  request: {
+    params: z.object({
+      id: z.string().openapi({ description: "ID Nota Pesanan", example: "1" })
+    }),
+    body: {
+      content: {
+        'application/json': {
+          schema: createOrderRequestSchema
+        }
+      }
+    }
+  },
+  responses: {
+    200: {
+      content: {
+        'application/json': {
+          schema: orderDetailResponseSchema
+        }
+      },
+      description: 'Nota pesanan berhasil diperbarui'
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Payload request tidak valid atau invoice duplikat'
+    },
+    401: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Unauthorized: Sesi tidak aktif'
+    },
+    404: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Nota pesanan tidak ditemukan'
+    },
+    500: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema
+        }
+      },
+      description: 'Kesalahan internal server'
+    }
+  }
+})
+
+

@@ -7,7 +7,7 @@ import { toast } from 'sonner'
 import { Button } from '@/components/ui/button'
 import { Input } from '@/components/ui/input'
 import { useSession } from '@/components/providers/session-provider'
-import { getOrdersAction, updateOrderStatusAction } from '@/server/order-actions'
+import { getOrdersAction, updateOrderStatusAction, deleteOrderAction } from '@/server/order-actions'
 import {
   Pagination,
   PaginationContent,
@@ -23,6 +23,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 
 import { OrderListTable } from './_components/order-list-table'
 import { OrderDetailDialog } from './_components/order-detail-dialog'
+import { DeleteConfirmDialog } from './_components/delete-confirm-dialog'
 
 interface Order {
   id: string
@@ -61,6 +62,8 @@ export default function OrdersPage() {
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
+  const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
+  const [isDeleteOpen, setIsDeleteOpen] = useState(false)
 
   const fetchOrders = async () => {
     setIsLoading(true)
@@ -94,6 +97,20 @@ export default function OrdersPage() {
       )
     } else {
       toast.error('Gagal memperbarui status', { id: toastId, description: res.error })
+    }
+  }
+
+  const handleDeleteOrder = async () => {
+    if (!selectedOrder) return
+    const toastId = toast.loading('Menghapus nota pesanan...')
+    const res = await deleteOrderAction(selectedOrder.id)
+    if (res.success) {
+      toast.success('Nota pesanan berhasil dihapus!', { id: toastId })
+      setIsDeleteOpen(false)
+      setSelectedOrder(null)
+      fetchOrders()
+    } else {
+      toast.error('Gagal menghapus nota pesanan', { id: toastId, description: res.error })
     }
   }
 
@@ -287,7 +304,16 @@ export default function OrdersPage() {
         <div className="py-12 text-center text-sm text-muted-foreground">Memuat riwayat transaksi...</div>
       ) : (
         <div className="flex flex-col gap-4">
-          <OrderListTable orders={paginatedOrders} onView={handleOpenDetail} onUpdateStatus={handleUpdateOrderStatus} />
+          <OrderListTable
+            orders={paginatedOrders}
+            onView={handleOpenDetail}
+            onEdit={(id) => router.push(`/dashboard/orders/${id}/edit`)}
+            onDelete={(order) => {
+              setSelectedOrder(order)
+              setIsDeleteOpen(true)
+            }}
+            onUpdateStatus={handleUpdateOrderStatus}
+          />
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
@@ -341,6 +367,16 @@ export default function OrdersPage() {
         isOpen={isDetailOpen}
         onClose={() => setIsDetailOpen(false)}
         orderId={selectedOrderId}
+      />
+
+      <DeleteConfirmDialog
+        isOpen={isDeleteOpen}
+        onClose={() => {
+          setIsDeleteOpen(false)
+          setSelectedOrder(null)
+        }}
+        order={selectedOrder}
+        onConfirm={handleDeleteOrder}
       />
     </div>
   )

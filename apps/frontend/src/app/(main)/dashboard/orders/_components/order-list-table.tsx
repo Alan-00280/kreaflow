@@ -1,6 +1,6 @@
 'use client'
 
-import { Eye } from 'lucide-react'
+import { Eye, Pencil, Trash2 } from 'lucide-react'
 import { Button } from '@/components/ui/button'
 import { WhatsAppButton } from '@/components/whatsapp-button'
 import { cn } from '@/lib/utils'
@@ -38,10 +38,12 @@ interface Order {
 interface OrderListTableProps {
   orders: Order[]
   onView: (orderId: string) => void
+  onEdit: (orderId: string) => void
+  onDelete: (order: Order) => void
   onUpdateStatus: (orderId: string, updates: { paymentStatus?: 'lunas' | 'belum_lunas'; pickupStatus?: 'belum_diambil' | 'sudah_diambil' | 'ditunda' }) => void
 }
 
-export function OrderListTable({ orders, onView, onUpdateStatus }: OrderListTableProps) {
+export function OrderListTable({ orders, onView, onEdit, onDelete, onUpdateStatus }: OrderListTableProps) {
   const formatRupiah = (value: string) => {
     const numeric = parseFloat(value)
     return new Intl.NumberFormat('id-ID', {
@@ -173,6 +175,30 @@ export function OrderListTable({ orders, onView, onUpdateStatus }: OrderListTabl
                   >
                     <Eye className="h-4 w-4" />
                   </Button>
+                  {order.pickupStatus !== 'sudah_diambil' && (
+                    <>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 hover:text-amber-600 hover:border-amber-600"
+                        onClick={() => onEdit(order.id)}
+                        type="button"
+                        title="Edit Transaksi"
+                      >
+                        <Pencil className="h-4 w-4" />
+                      </Button>
+                      <Button
+                        size="icon"
+                        variant="outline"
+                        className="h-8 w-8 text-destructive hover:bg-destructive/10 hover:border-destructive"
+                        onClick={() => onDelete(order)}
+                        type="button"
+                        title="Hapus Transaksi"
+                      >
+                        <Trash2 className="h-4 w-4" />
+                      </Button>
+                    </>
+                  )}
                   {order.customer?.phoneNumber ? (
                     <WhatsAppButton
                       phone={order.customer.phoneNumber}
