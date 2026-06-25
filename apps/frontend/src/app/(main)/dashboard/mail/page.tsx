@@ -3,8 +3,10 @@ import Link from "next/link";
 import { ExternalLink } from "lucide-react";
 
 import { Button } from "@/components/ui/button";
+import { redirect } from "next/navigation";
 
 export default function Page() {
+  redirect('/unauthorized')
   return (
     <div className="flex h-full flex-col gap-2">
       <div className="flex items-center justify-between gap-3">

@@ -12,8 +12,10 @@ import { RecentOrders } from "./_components/recent-orders";
 import { StoreTraffic } from "./_components/store-traffic";
 import { TopProducts } from "./_components/top-products";
 import { TrafficSources } from "./_components/traffic-sources";
+import { redirect } from "next/navigation";
 
 export default function Page() {
+  redirect('/unauthorized')
   const formattedDate = format(new Date(), "EEEE, do MMMM yyyy");
 
   return (

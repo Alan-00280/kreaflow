@@ -12,8 +12,10 @@ import { QuickActions } from "./_components/quick-actions";
 import { TransactionsOverviewCard } from "./_components/transactions-overview-card";
 import { UpcomingTransactions } from "./_components/upcoming-transactions";
 import { Wallet } from "./_components/wallet";
+import { redirect } from "next/navigation";
 
 export default function Page() {
+  redirect('/unauthorized')
   const formattedDate = format(new Date(), "EEEE, do MMMM yyyy");
 
   return (
