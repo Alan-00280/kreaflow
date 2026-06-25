@@ -1,8 +1,24 @@
+'use client'
+
 import Link from "next/link";
 
 import { Lock } from "lucide-react";
+import { logoutAction } from "@/server/auth-actions";
+import { useEffect } from "react";
 
 export default function page() {
+  const handleLogout = async () => {
+    try {
+      await logoutAction()
+    } catch (e) {
+      console.error(e)
+    }
+  }
+
+  useEffect(() => {
+    handleLogout();
+  }, []);
+
   return (
     <div className="flex min-h-dvh flex-col items-center justify-center bg-background px-4 py-12 sm:px-6 lg:px-8">
       <div className="mx-auto max-w-md text-center">
