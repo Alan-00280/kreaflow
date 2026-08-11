@@ -59,6 +59,7 @@ export default function OrdersPage() {
   const [endDate, setEndDate] = useState<Date | undefined>(undefined)
   const [filterPayment, setFilterPayment] = useState<string>('all')
   const [filterPickup, setFilterPickup] = useState<string>('all')
+  const [filterGeneration, setFilterGeneration] = useState<string>('')
   const [currentPage, setCurrentPage] = useState(1)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
@@ -120,10 +121,10 @@ export default function OrdersPage() {
     }
   }, [session])
 
-  // Reset to page 1 on search, date, or status filter change
+  // Reset to page 1 on search, date, status, or generation filter change
   useEffect(() => {
     setCurrentPage(1)
-  }, [searchQuery, startDate, endDate, filterPayment, filterPickup])
+  }, [searchQuery, startDate, endDate, filterPayment, filterPickup, filterGeneration])
 
   const handleOpenDetail = (id: string) => {
     setSelectedOrderId(id)
@@ -156,7 +157,13 @@ export default function OrdersPage() {
     const matchesPayment = filterPayment === 'all' || order.paymentStatus === filterPayment
     const matchesPickup = filterPickup === 'all' || order.pickupStatus === filterPickup
 
-    return (matchesInvoice || matchesCustomer) && matchesDate && matchesPayment && matchesPickup
+    const matchesGeneration =
+      filterGeneration.trim() === '' ||
+      (order.customer?.generation !== undefined &&
+        order.customer?.generation !== null &&
+        Number(order.customer.generation) === Number(filterGeneration))
+
+    return (matchesInvoice || matchesCustomer) && matchesDate && matchesPayment && matchesPickup && matchesGeneration
   })
 
   // Pagination calculation
@@ -281,7 +288,17 @@ export default function OrdersPage() {
             <NativeSelectOption value="ditunda">Ditunda</NativeSelectOption>
           </NativeSelect>
 
-          {(startDate || endDate || filterPayment !== 'all' || filterPickup !== 'all') && (
+          <div className="w-28">
+            <Input
+              type="number"
+              value={filterGeneration}
+              onChange={(e) => setFilterGeneration(e.target.value)}
+              placeholder="Angkatan"
+              className="h-9 text-xs"
+            />
+          </div>
+
+          {(startDate || endDate || filterPayment !== 'all' || filterPickup !== 'all' || filterGeneration) && (
             <Button
               type="button"
               variant="ghost"
@@ -291,6 +308,7 @@ export default function OrdersPage() {
                 setEndDate(undefined)
                 setFilterPayment('all')
                 setFilterPickup('all')
+                setFilterGeneration('')
               }}
               className="h-9 text-xs px-2 text-muted-foreground hover:text-foreground"
             >

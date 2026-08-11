@@ -1,6 +1,7 @@
 {
   "extends": "@kreaflow/ts-config/base.json",
   "compilerOptions": {
+    // "ignoreDeprecations": "6.0",
     "lib": ["dom", "dom.iterable", "esnext"],
     "allowJs": true,
     "noEmit": true,

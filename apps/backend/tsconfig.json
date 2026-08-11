@@ -1,6 +1,7 @@
 {
   "extends": "@kreaflow/ts-config/base.json",
   "compilerOptions": {
+    // "ignoreDeprecations": "6.0",
     "noEmit": false,
     "allowJs": true,
     "outDir": "./dist",
