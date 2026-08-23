@@ -106,6 +106,7 @@ export function OrderListTable({ orders, onView, onEdit, onDelete, onUpdateStatu
       <Table>
         <TableHeader>
           <TableRow>
+            <TableHead className="w-12 text-center">No</TableHead>
             <TableHead>Nomor Invoice</TableHead>
             <TableHead>Pelanggan</TableHead>
             <TableHead>Dicatat Oleh</TableHead>
@@ -117,8 +118,9 @@ export function OrderListTable({ orders, onView, onEdit, onDelete, onUpdateStatu
           </TableRow>
         </TableHeader>
         <TableBody>
-          {orders.map((order) => (
+          {orders.map((order, index) => (
             <TableRow key={order.id} className="hover:bg-accent/40 transition-colors">
+              <TableCell className="text-center font-medium">{index + 1}</TableCell>
               <TableCell className="font-semibold text-primary">{order.invoiceNumber}</TableCell>
               <TableCell>
                 <div className="flex flex-col">
