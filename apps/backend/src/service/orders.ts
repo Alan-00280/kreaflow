@@ -380,7 +380,7 @@ orders.openapi(createOrderRoute, async (c) => {
   }
 })
 
-// 2. GET / - List Order History (Admin sees all, Operator sees only their own)
+// 2. GET / - List Order History 
 orders.openapi(listOrdersRoute, async (c) => {
   try {
     const prisma = c.get('prisma')
@@ -434,7 +434,7 @@ orders.openapi(listOrdersRoute, async (c) => {
   }
 })
 
-// 3. GET /:id - Order Detail (Admin sees all, Operator limited to their own)
+// 3. GET /:id - Order Detail 
 orders.openapi(getOrderDetailRoute, async (c) => {
   try {
     const prisma = c.get('prisma')
