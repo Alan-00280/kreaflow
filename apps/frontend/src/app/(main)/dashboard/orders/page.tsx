@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { Fragment, useState, useEffect, useRef } from 'react'
 import { PlusCircle, Calendar as CalendarIcon } from 'lucide-react'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
@@ -11,6 +11,7 @@ import { getOrdersAction, updateOrderStatusAction, deleteOrderAction } from '@/s
 import {
   Pagination,
   PaginationContent,
+  PaginationEllipsis,
   PaginationItem,
   PaginationLink,
   PaginationNext,
@@ -46,6 +47,56 @@ interface Order {
   }
 }
 
+interface OrdersPageState {
+  currentPage: number
+  searchQuery: string
+  startDate: Date | undefined
+  endDate: Date | undefined
+  filterPayment: 'all' | 'lunas' | 'belum_lunas'
+  filterPickup: 'all' | 'belum_diambil' | 'sudah_diambil' | 'ditunda'
+  filterGeneration: string
+}
+
+const ORDERS_PAGE_STATE_KEY = 'kreaflow:orders:state'
+
+function parseOrdersPageState(rawState: string | null): OrdersPageState | null {
+  if (!rawState) return null
+
+  try {
+    const saved: unknown = JSON.parse(rawState)
+    if (typeof saved !== 'object' || saved === null || Array.isArray(saved)) return null
+
+    const state = saved as Record<string, unknown>
+    const isValidDate = (value: unknown): value is string | null =>
+      value === null || (typeof value === 'string' && !Number.isNaN(new Date(value).getTime()))
+
+    if (
+      !Number.isSafeInteger(state.currentPage) ||
+      (state.currentPage as number) < 1 ||
+      typeof state.searchQuery !== 'string' ||
+      !isValidDate(state.startDate) ||
+      !isValidDate(state.endDate) ||
+      !['all', 'lunas', 'belum_lunas'].includes(state.filterPayment as string) ||
+      !['all', 'belum_diambil', 'sudah_diambil', 'ditunda'].includes(state.filterPickup as string) ||
+      typeof state.filterGeneration !== 'string'
+    ) {
+      return null
+    }
+
+    return {
+      currentPage: state.currentPage as number,
+      searchQuery: state.searchQuery,
+      startDate: state.startDate ? new Date(state.startDate) : undefined,
+      endDate: state.endDate ? new Date(state.endDate) : undefined,
+      filterPayment: state.filterPayment as OrdersPageState['filterPayment'],
+      filterPickup: state.filterPickup as OrdersPageState['filterPickup'],
+      filterGeneration: state.filterGeneration
+    }
+  } catch {
+    return null
+  }
+}
+
 export default function OrdersPage() {
   const session = useSession()
   const router = useRouter()
@@ -61,10 +112,68 @@ export default function OrdersPage() {
   const [filterPickup, setFilterPickup] = useState<string>('all')
   const [filterGeneration, setFilterGeneration] = useState<string>('')
   const [currentPage, setCurrentPage] = useState(1)
+  const [isStateRestored, setIsStateRestored] = useState(false)
+  const previousFiltersRef = useRef<{
+    searchQuery: string
+    startDate: Date | undefined
+    endDate: Date | undefined
+    filterPayment: string
+    filterPickup: string
+    filterGeneration: string
+  } | null>(null)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
   const [selectedOrder, setSelectedOrder] = useState<Order | null>(null)
   const [isDeleteOpen, setIsDeleteOpen] = useState(false)
+
+  useEffect(() => {
+    let savedState: OrdersPageState | null = null
+    try {
+      savedState = parseOrdersPageState(sessionStorage.getItem(ORDERS_PAGE_STATE_KEY))
+    } catch (error) {
+      console.error('Failed to read orders page state:', error)
+    }
+    if (savedState) {
+      setCurrentPage(savedState.currentPage)
+      setSearchQuery(savedState.searchQuery)
+      setStartDate(savedState.startDate)
+      setEndDate(savedState.endDate)
+      setFilterPayment(savedState.filterPayment)
+      setFilterPickup(savedState.filterPickup)
+      setFilterGeneration(savedState.filterGeneration)
+    }
+    setIsStateRestored(true)
+  }, [])
+
+  useEffect(() => {
+    if (!isStateRestored) return
+
+    try {
+      sessionStorage.setItem(
+        ORDERS_PAGE_STATE_KEY,
+        JSON.stringify({
+          currentPage,
+          searchQuery,
+          startDate: startDate?.toISOString() ?? null,
+          endDate: endDate?.toISOString() ?? null,
+          filterPayment,
+          filterPickup,
+          filterGeneration
+        })
+      )
+    } catch (error) {
+      console.error('Failed to save orders page state:', error)
+    }
+  }, [
+    currentPage,
+    endDate,
+    filterGeneration,
+    filterPayment,
+    filterPickup,
+    isStateRestored,
+    searchQuery,
+    startDate
+  ])
 
   const fetchOrders = async () => {
     setIsLoading(true)
@@ -123,8 +232,33 @@ export default function OrdersPage() {
 
   // Reset to page 1 on search, date, status, or generation filter change
   useEffect(() => {
-    setCurrentPage(1)
-  }, [searchQuery, startDate, endDate, filterPayment, filterPickup, filterGeneration])
+    if (!isStateRestored) return
+
+    const currentFilters = {
+      searchQuery,
+      startDate,
+      endDate,
+      filterPayment,
+      filterPickup,
+      filterGeneration
+    }
+    const previousFilters = previousFiltersRef.current
+    previousFiltersRef.current = currentFilters
+
+    if (
+      previousFilters &&
+      (
+        previousFilters.searchQuery !== searchQuery ||
+        previousFilters.startDate !== startDate ||
+        previousFilters.endDate !== endDate ||
+        previousFilters.filterPayment !== filterPayment ||
+        previousFilters.filterPickup !== filterPickup ||
+        previousFilters.filterGeneration !== filterGeneration
+      )
+    ) {
+      setCurrentPage(1)
+    }
+  }, [searchQuery, startDate, endDate, filterPayment, filterPickup, filterGeneration, isStateRestored])
 
   const handleOpenDetail = (id: string) => {
     setSelectedOrderId(id)
@@ -169,6 +303,18 @@ export default function OrdersPage() {
   // Pagination calculation
   const ITEMS_PER_PAGE = 10
   const totalPages = Math.ceil(filteredOrders.length / ITEMS_PER_PAGE)
+  useEffect(() => {
+    if (isStateRestored && !isLoading && currentPage > totalPages) {
+      setCurrentPage(Math.max(totalPages, 1))
+    }
+  }, [currentPage, isLoading, isStateRestored, totalPages])
+
+  const visiblePageNumbers =
+    totalPages <= 5
+      ? Array.from({ length: totalPages }, (_, index) => index + 1)
+      : Array.from(
+          new Set([1, currentPage - 1, currentPage, currentPage + 1, totalPages].filter((page) => page >= 1 && page <= totalPages))
+        )
   const paginatedOrders = filteredOrders.slice(
     (currentPage - 1) * ITEMS_PER_PAGE,
     currentPage * ITEMS_PER_PAGE
@@ -335,42 +481,70 @@ export default function OrdersPage() {
 
           {/* Pagination Controls */}
           {totalPages > 1 && (
-            <div className="flex justify-center mt-4">
-              <Pagination>
-                <PaginationContent>
+            <div className="mt-4 flex justify-center">
+              <div className="flex w-full items-center justify-between sm:hidden">
+                <PaginationPrevious
+                  href="#"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    setCurrentPage((page) => Math.max(page - 1, 1))
+                  }}
+                  className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+                <span className="text-sm text-muted-foreground" aria-live="polite">
+                  Halaman {currentPage} dari {totalPages}
+                </span>
+                <PaginationNext
+                  href="#"
+                  onClick={(event) => {
+                    event.preventDefault()
+                    setCurrentPage((page) => Math.min(page + 1, totalPages))
+                  }}
+                  className={currentPage === totalPages ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                />
+              </div>
+              <Pagination className="hidden sm:flex">
+                <PaginationContent className="gap-1">
                   <PaginationItem>
                     <PaginationPrevious
                       href="#"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setCurrentPage((prev) => Math.max(prev - 1, 1))
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setCurrentPage((page) => Math.max(page - 1, 1))
                       }}
-                      className={currentPage === 1 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      className={currentPage === 1 ? "pointer-events-none opacity-50" : undefined}
                     />
                   </PaginationItem>
-                  {Array.from({ length: totalPages }, (_, i) => i + 1).map((page) => (
-                    <PaginationItem key={page}>
-                      <PaginationLink
-                        href="#"
-                        isActive={page === currentPage}
-                        onClick={(e) => {
-                          e.preventDefault()
-                          setCurrentPage(page)
-                        }}
-                        className="cursor-pointer"
-                      >
-                        {page}
-                      </PaginationLink>
-                    </PaginationItem>
+                  {visiblePageNumbers.map((page, index) => (
+                    <Fragment key={page}>
+                      {index > 0 && page - visiblePageNumbers[index - 1] > 1 && (
+                        <PaginationItem>
+                          <PaginationEllipsis />
+                        </PaginationItem>
+                      )}
+                      <PaginationItem>
+                        <PaginationLink
+                          href="#"
+                          isActive={page === currentPage}
+                          onClick={(event) => {
+                            event.preventDefault()
+                            setCurrentPage(page)
+                          }}
+                          className="cursor-pointer"
+                        >
+                          {page}
+                        </PaginationLink>
+                      </PaginationItem>
+                    </Fragment>
                   ))}
                   <PaginationItem>
                     <PaginationNext
                       href="#"
-                      onClick={(e) => {
-                        e.preventDefault()
-                        setCurrentPage((prev) => Math.min(prev + 1, totalPages))
+                      onClick={(event) => {
+                        event.preventDefault()
+                        setCurrentPage((page) => Math.min(page + 1, totalPages))
                       }}
-                      className={currentPage === totalPages || totalPages === 0 ? "pointer-events-none opacity-50" : "cursor-pointer"}
+                      className={currentPage === totalPages ? "pointer-events-none opacity-50" : undefined}
                     />
                   </PaginationItem>
                 </PaginationContent>
