@@ -14,11 +14,20 @@ async function getAuthHeaders(): Promise<HeadersInit> {
   return headers
 }
 
-export async function getOrdersAction() {
+export async function getOrdersAction(filters?: { minPrice?: string; maxPrice?: string; price?: string }) {
   try {
     const backendUrl = process.env.NEXT_PUBLIC_API_URL || 'http://127.0.0.1:8000'
     const headers = await getAuthHeaders()
-    const response = await fetch(`${backendUrl}/orders`, {
+    
+    const queryParams = new URLSearchParams()
+    if (filters?.minPrice) queryParams.set('minPrice', filters.minPrice)
+    if (filters?.maxPrice) queryParams.set('maxPrice', filters.maxPrice)
+    if (filters?.price) queryParams.set('price', filters.price)
+
+    const queryString = queryParams.toString()
+    const url = queryString ? `${backendUrl}/orders?${queryString}` : `${backendUrl}/orders`
+
+    const response = await fetch(url, {
       method: 'GET',
       headers,
       next: { revalidate: 0 } // Disable fetch cache to ensure real-time data
