@@ -389,7 +389,42 @@ orders.openapi(listOrdersRoute, async (c) => {
       return c.json({ error: 'Unauthorized: Sesi tidak ditemukan' }, 401)
     }
 
+    const { minPrice, maxPrice, price } = c.req.valid('query')
+
+    const where: any = {}
+
+    if (price !== undefined && price !== '') {
+      const numPrice = Number(price)
+      if (Number.isNaN(numPrice) || numPrice < 0) {
+        return c.json({ error: 'Parameter price harus berupa angka positif yang valid' }, 400)
+      }
+      where.totalAmount = numPrice
+    } else {
+      const priceFilter: any = {}
+      if (minPrice !== undefined && minPrice !== '') {
+        const numMin = Number(minPrice)
+        if (Number.isNaN(numMin) || numMin < 0) {
+          return c.json({ error: 'Parameter minPrice harus berupa angka positif yang valid' }, 400)
+        }
+        priceFilter.gte = numMin
+      }
+      if (maxPrice !== undefined && maxPrice !== '') {
+        const numMax = Number(maxPrice)
+        if (Number.isNaN(numMax) || numMax < 0) {
+          return c.json({ error: 'Parameter maxPrice harus berupa angka positif yang valid' }, 400)
+        }
+        priceFilter.lte = numMax
+      }
+      if (priceFilter.gte !== undefined && priceFilter.lte !== undefined && priceFilter.gte > priceFilter.lte) {
+        return c.json({ error: 'Parameter minPrice tidak boleh lebih besar dari maxPrice' }, 400)
+      }
+      if (Object.keys(priceFilter).length > 0) {
+        where.totalAmount = priceFilter
+      }
+    }
+
     const orderList = await prisma.order.findMany({
+      where,
       include: {
         customer: true,
         recordedByUser: {
@@ -832,7 +867,7 @@ orders.openapi(updateOrderRoute, async (c) => {
 
       // Delete old order items
       await tx.orderItem.deleteMany({
-        where: { orderId: order.id }
+        where: { orderId: { equals: BigInt(order.id) } }
       })
 
       // Create new order items

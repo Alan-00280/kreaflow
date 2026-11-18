@@ -156,12 +156,21 @@ export const createOrderRoute = createRoute({
   }
 })
 
+export const listOrdersQuerySchema = z.object({
+  minPrice: z.string().optional().openapi({ description: "Filter batas minimum total nilai transaksi (IDR)", example: "50000" }),
+  maxPrice: z.string().optional().openapi({ description: "Filter batas maksimum total nilai transaksi (IDR)", example: "200000" }),
+  price: z.string().optional().openapi({ description: "Filter total nilai transaksi spesifik (IDR)", example: "120000" })
+}).openapi('ListOrdersQuery')
+
 export const listOrdersRoute = createRoute({
   method: 'get',
   path: '/',
   tags: ['Orders'],
   summary: 'Daftar Riwayat Nota Pesanan',
-  description: 'Mengambil daftar riwayat transaksi. Seluruh pengguna (Admin & Operator) dapat melihat seluruh data pesanan.',
+  description: 'Mengambil daftar riwayat transaksi dengan dukungan filter harga. Seluruh pengguna (Admin & Operator) dapat melihat seluruh data pesanan.',
+  request: {
+    query: listOrdersQuerySchema
+  },
   responses: {
     200: {
       content: {
@@ -170,6 +179,14 @@ export const listOrdersRoute = createRoute({
         },
       },
       description: 'Daftar riwayat transaksi berhasil diambil',
+    },
+    400: {
+      content: {
+        'application/json': {
+          schema: errorResponseSchema,
+        },
+      },
+      description: 'Parameter filter harga tidak valid',
     },
     401: {
       content: {

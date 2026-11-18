@@ -25,6 +25,7 @@ import { NativeSelect, NativeSelectOption } from '@/components/ui/native-select'
 import { OrderListTable } from './_components/order-list-table'
 import { OrderDetailDialog } from './_components/order-detail-dialog'
 import { DeleteConfirmDialog } from './_components/delete-confirm-dialog'
+import { PriceRangeFilter } from './_components/price-range-filter'
 
 interface Order {
   id: string
@@ -55,6 +56,8 @@ interface OrdersPageState {
   filterPayment: 'all' | 'lunas' | 'belum_lunas'
   filterPickup: 'all' | 'belum_diambil' | 'sudah_diambil' | 'ditunda'
   filterGeneration: string
+  minPrice: string
+  maxPrice: string
 }
 
 const ORDERS_PAGE_STATE_KEY = 'kreaflow:orders:state'
@@ -90,7 +93,9 @@ function parseOrdersPageState(rawState: string | null): OrdersPageState | null {
       endDate: state.endDate ? new Date(state.endDate) : undefined,
       filterPayment: state.filterPayment as OrdersPageState['filterPayment'],
       filterPickup: state.filterPickup as OrdersPageState['filterPickup'],
-      filterGeneration: state.filterGeneration
+      filterGeneration: state.filterGeneration,
+      minPrice: typeof state.minPrice === 'string' ? state.minPrice : '',
+      maxPrice: typeof state.maxPrice === 'string' ? state.maxPrice : ''
     }
   } catch {
     return null
@@ -111,6 +116,8 @@ export default function OrdersPage() {
   const [filterPayment, setFilterPayment] = useState<string>('all')
   const [filterPickup, setFilterPickup] = useState<string>('all')
   const [filterGeneration, setFilterGeneration] = useState<string>('')
+  const [minPrice, setMinPrice] = useState<string>('')
+  const [maxPrice, setMaxPrice] = useState<string>('')
   const [currentPage, setCurrentPage] = useState(1)
   const [isStateRestored, setIsStateRestored] = useState(false)
   const previousFiltersRef = useRef<{
@@ -120,6 +127,8 @@ export default function OrdersPage() {
     filterPayment: string
     filterPickup: string
     filterGeneration: string
+    minPrice: string
+    maxPrice: string
   } | null>(null)
   const [selectedOrderId, setSelectedOrderId] = useState<string | null>(null)
   const [isDetailOpen, setIsDetailOpen] = useState(false)
@@ -141,6 +150,8 @@ export default function OrdersPage() {
       setFilterPayment(savedState.filterPayment)
       setFilterPickup(savedState.filterPickup)
       setFilterGeneration(savedState.filterGeneration)
+      setMinPrice(savedState.minPrice || '')
+      setMaxPrice(savedState.maxPrice || '')
     }
     setIsStateRestored(true)
   }, [])
@@ -158,7 +169,9 @@ export default function OrdersPage() {
           endDate: endDate?.toISOString() ?? null,
           filterPayment,
           filterPickup,
-          filterGeneration
+          filterGeneration,
+          minPrice,
+          maxPrice
         })
       )
     } catch (error) {
@@ -171,6 +184,8 @@ export default function OrdersPage() {
     filterPayment,
     filterPickup,
     isStateRestored,
+    maxPrice,
+    minPrice,
     searchQuery,
     startDate
   ])
@@ -230,7 +245,7 @@ export default function OrdersPage() {
     }
   }, [session])
 
-  // Reset to page 1 on search, date, status, or generation filter change
+  // Reset to page 1 on search, date, status, generation, or price range filter change
   useEffect(() => {
     if (!isStateRestored) return
 
@@ -240,7 +255,9 @@ export default function OrdersPage() {
       endDate,
       filterPayment,
       filterPickup,
-      filterGeneration
+      filterGeneration,
+      minPrice,
+      maxPrice
     }
     const previousFilters = previousFiltersRef.current
     previousFiltersRef.current = currentFilters
@@ -253,12 +270,14 @@ export default function OrdersPage() {
         previousFilters.endDate !== endDate ||
         previousFilters.filterPayment !== filterPayment ||
         previousFilters.filterPickup !== filterPickup ||
-        previousFilters.filterGeneration !== filterGeneration
+        previousFilters.filterGeneration !== filterGeneration ||
+        previousFilters.minPrice !== minPrice ||
+        previousFilters.maxPrice !== maxPrice
       )
     ) {
       setCurrentPage(1)
     }
-  }, [searchQuery, startDate, endDate, filterPayment, filterPickup, filterGeneration, isStateRestored])
+  }, [searchQuery, startDate, endDate, filterPayment, filterPickup, filterGeneration, minPrice, maxPrice, isStateRestored])
 
   const handleOpenDetail = (id: string) => {
     setSelectedOrderId(id)
@@ -272,7 +291,7 @@ export default function OrdersPage() {
     return `${year}-${month}-${day}`
   }
 
-  // Client-side filtering logic (by invoice number, customer name, and order-date)
+  // Client-side filtering logic (by invoice number, customer name, order-date, and price range)
   const filteredOrders = orders.filter((order) => {
     const matchesInvoice = order.invoiceNumber.toLowerCase().includes(searchQuery.toLowerCase())
     const matchesCustomer = order.customer?.name?.toLowerCase().includes(searchQuery.toLowerCase()) || false
@@ -297,7 +316,32 @@ export default function OrdersPage() {
         order.customer?.generation !== null &&
         Number(order.customer.generation) === Number(filterGeneration))
 
-    return (matchesInvoice || matchesCustomer) && matchesDate && matchesPayment && matchesPickup && matchesGeneration
+    const orderTotal = parseFloat(order.totalAmount)
+    let matchesMinPrice = true
+    if (minPrice.trim() !== '') {
+      const minVal = Number(minPrice)
+      if (!Number.isNaN(minVal) && orderTotal < minVal) {
+        matchesMinPrice = false
+      }
+    }
+
+    let matchesMaxPrice = true
+    if (maxPrice.trim() !== '') {
+      const maxVal = Number(maxPrice)
+      if (!Number.isNaN(maxVal) && orderTotal > maxVal) {
+        matchesMaxPrice = false
+      }
+    }
+
+    return (
+      (matchesInvoice || matchesCustomer) &&
+      matchesDate &&
+      matchesPayment &&
+      matchesPickup &&
+      matchesGeneration &&
+      matchesMinPrice &&
+      matchesMaxPrice
+    )
   })
 
   // Pagination calculation
@@ -444,7 +488,14 @@ export default function OrdersPage() {
             />
           </div>
 
-          {(startDate || endDate || filterPayment !== 'all' || filterPickup !== 'all' || filterGeneration) && (
+          <PriceRangeFilter
+            minPrice={minPrice}
+            maxPrice={maxPrice}
+            onMinPriceChange={setMinPrice}
+            onMaxPriceChange={setMaxPrice}
+          />
+
+          {(startDate || endDate || filterPayment !== 'all' || filterPickup !== 'all' || filterGeneration || minPrice || maxPrice) && (
             <Button
               type="button"
               variant="ghost"
@@ -455,6 +506,8 @@ export default function OrdersPage() {
                 setFilterPayment('all')
                 setFilterPickup('all')
                 setFilterGeneration('')
+                setMinPrice('')
+                setMaxPrice('')
               }}
               className="h-9 text-xs px-2 text-muted-foreground hover:text-foreground"
             >
